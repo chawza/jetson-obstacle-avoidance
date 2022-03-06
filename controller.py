@@ -1,8 +1,11 @@
 # UI display for controlling the Robot and estabilish connection to robot's server
 import asyncio
+from base64 import decode
 from http import client
+from turtle import update
 import cv2
 import tkinter as tk
+from cv2 import exp
 import websockets
 from websockets.client import WebSocketClientProtocol, connect
 import time
@@ -12,77 +15,96 @@ from threading import Thread
 
 ACTION_DICT = {
   'w': 'FORWARD',
-  's': 'BACK',
+  's': 'BACKWARD',
   'a': 'LEFT',
   'd': 'RIGHT'
 }
 
 img = None
+stop_client = asyncio.Event()
 
-async def create_connection(host='192.168.100.11', port=8765):
+async def create_connection(host='192.168.100.11', port=8765, path='/'):
   print(f'connecting to {host}:{port}')
-  return await connect(f'ws://{host}:{port}')
+  return await connect(f'ws://{host}:{port}{path}')
 
-
-async def recieve_img(ws_client: WebSocketClientProtocol):
-  print('receive img starts')
+def update_img(data):
   global img
-  async for data in ws_client:
+  np_img = np.frombuffer(data, np.uint8)
+  decoded_img = cv2.imdecode(np_img, -1)
+  img = decoded_img.copy()
+
+async def listen_server():
+  print('CAM: Making Connection')
+  conn = await connect('ws://192.168.100.11:8765/cam')
+  print('CAM: Server Connected')
+  async for data in conn:
     try:
-      img_buffer = bytes(data)
-      img = cv2.imdecode(img_buffer)
+      update_img(data)
     except TypeError as Err:
-      print('Server > {}'.format(data))
+      # print('Server > {}'.format(data))
+      pass  
 
+async def app():
+  global stop_client
+  print('APP: Making Connection')
+  async with connect('ws://192.168.100.11:8765/') as ws_client:
+    print('APP: Server connected')
+    current_key = ''
 
-async def app(ws_client: WebSocketClientProtocol):
-  print('entered App')
-  current_key = ''
-  print('Robot ready to move')
-
-  while True and not ws_client.closed:
-    if img is not None:
-      cv2.imshow('img', img)
-
-    cv2.waitKey(1)
-    key = getch()
-    key = key.decode('utf-8')
-    
-    if current_key != key:
-      current_key = key
-      print('key pressed: {}'.format(current_key))
+    while True:
+      key = getch()
+      key = key.decode('utf-8')
       
-      if key == 'q' or key == ' ':
-        await ws_client.send('QUIT')
-        break
+      if current_key != key:
+        current_key = key
+        print('key pressed: {}'.format(current_key))
+        
+        if key == 'q' or key == ' ':
+          await ws_client.send('QUIT')
+          break
 
-      if key == 'r' or key == ' ':
-        await ws_client.send('RESET')
-        continue
+        elif key == 'r' or key == ' ':
+          await ws_client.send('RESET')
 
-      if key == 'w' or key == 's' or key == 'a' or key == 'd':
-        await ws_client.send(ACTION_DICT[key])
-        continue
-  
-  ws_client.close()
-  print('closing app')
-  return 'App Done'
+        elif key == 'e':
+          await ws_client.send('STOP')
 
-async def main():
-  print('main() starts')
-  global ws_client
-  
-  ws_client = await create_connection()
-  print('connection created')
+        elif key == 'w' or key == 's' or key == 'a' or key == 'd':
+          await ws_client.send(ACTION_DICT[key])
+    
+    await ws_client.close()
+    stop_client.set()
+    print('closing app')
+    return 'App Done'
 
-  await asyncio.gather(
-    recieve_img(ws_client),
-    app(ws_client)
-  )
+def display_image():
+  global img
+  global stop_client
+  while True and not stop_client.is_set():
+    try:
+      cv2.imshow('img', img)
+      cv2.waitKey(1)
+    except Exception as err:
+      print(err)
+  cv2.destroyAllWindows()
+
+def listen_thread():
+  loop = asyncio.new_event_loop()
+  loop.run_until_complete(listen_server())
+
+def app_thread():
+  loop = asyncio.new_event_loop()
+  loop.run_until_complete(app())
 
 if __name__ == '__main__':
   print('Robot Controller Starts')
-  loop = asyncio.get_event_loop()
-  loop.run_until_complete(main())
-  loop.close()
+  # listen_server_thread = Thread(target=listen_thread)
+  control_thread = Thread(target=app_thread)
+
+  while not stop_client.is_set():
+    control_thread.start()
+
+  # listen_server_thread.start()
+  control_thread.start()
+  display_image()
   
