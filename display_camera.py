@@ -5,7 +5,7 @@ import cv2
 # 2 == Right
 
 left_cam_idx = 0
-right_cam_idx = 2
+right_cam_idx = 1
 
 cam_left = cv2.VideoCapture(left_cam_idx)
 cam_right = cv2.VideoCapture(right_cam_idx)
