@@ -27,11 +27,19 @@ async def main():
         h_dsize = round(left_img.shape[0] / 2)
         w_dsize = round(left_img.shape[1]/ 2)
 
-        left_img = cv2.resize(left_img, dsize=(w_dsize, h_dsize))
+        # left_img = cv2.resize(left_img, dsize=(w_dsize, h_dsize))
 
-        # merged_img = np.hstack((left_img, right_img))
-        # buffer_img = cv2.imencode('.jpg', merged_img)[1]
-        buffer_img = cv2.imencode('.jpg', left_img)[1]
+        merged_img = np.hstack((left_img, right_img))
+        # merged_img = cv2.resize(
+        #   merged_img,
+        #   dsize=(
+        #     round(merged_img.shape[1]/2),
+        #     round(merged_img.shape[0]/2)
+        #   )
+        # )
+
+        buffer_img = cv2.imencode('.jpg', merged_img)[1]
+        # buffer_img = cv2.imencode('.jpg', left_img)[1]
 
         # first = time.perf_counter()
         await websocket.send(buffer_img.tobytes())

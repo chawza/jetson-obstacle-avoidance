@@ -24,6 +24,8 @@ GPIO.setup(
 class Action:
   forward = 'FORWARD'
   backward = 'BACKWARD'
+  left = 'LEFT'
+  right = 'RIGHT'
   stop = 'STOP'
 
 class Robot:
@@ -31,11 +33,14 @@ class Robot:
     GPIO.output(
       [
         Pin.left_power,
-        Pin.right_power,
         Pin.left_direction,
-        Pin.right_direction
+        Pin.right_power
       ],
       GPIO.HIGH
+    )
+    GPIO.output(
+      Pin.right_direction,
+      GPIO.LOW
     )
 
   def backward(self):
@@ -43,15 +48,47 @@ class Robot:
       [
         Pin.left_power,
         Pin.right_power,
+        Pin.right_direction
       ],
       GPIO.HIGH
     )
     GPIO.output(
       [
         Pin.left_direction,
-        Pin.right_direction
       ],
       GPIO.LOW
+    )
+
+  def left(self):
+    GPIO.output(
+      [
+        Pin.left_power,
+        Pin.right_power
+      ],
+      GPIO.HIGH
+    )
+    GPIO.output(
+      [
+        Pin.right_direction,
+        Pin.left_direction
+      ],
+      GPIO.LOW
+    )
+  
+  def right(self):
+    GPIO.output(
+      [
+        Pin.left_power,
+        Pin.right_power
+      ],
+      GPIO.HIGH
+    )
+    GPIO.output(
+      [
+        Pin.right_direction,
+        Pin.left_direction
+      ],
+      GPIO.HIGH
     )
 
   def stop(self):
@@ -79,6 +116,12 @@ def app():
       if curr_key == 'w':
         robot.forward()
         print(Action.forward)
+      elif curr_key == 'a':
+        robot.left()
+        print(Action.left)
+      elif curr_key == 'd':
+        robot.right()
+        print(Action.right)
       elif curr_key == 's':
         robot.backward()
         print(Action.backward)
@@ -91,8 +134,8 @@ def app():
     
     if key == 'q':
       running = False
+      print('Good BYE')
   
-  print('Good BYE')
 
 if __name__ == '__main__':
   try:
