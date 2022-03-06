@@ -37,7 +37,6 @@ class Robot:
     )
 
   def forward(self):
-    print('ROBOT: FORWARD')
     GPIO.output(
       [
         Pin.left_power,
@@ -53,7 +52,6 @@ class Robot:
     self.current_action = Action.forward
 
   def backward(self):
-    print('ROBOT: BACKWARD')
     GPIO.output(
       [
         Pin.left_power,
@@ -69,7 +67,6 @@ class Robot:
     self.current_action = Action.backward
   
   def left(self):
-    print('ROBOT: LEFT')
     GPIO.output(
       [
         Pin.left_power,
@@ -87,7 +84,6 @@ class Robot:
     self.current_action = Action.left
   
   def right(self):
-    print('ROBOT: right')
     GPIO.output(
       [
         Pin.left_power,
