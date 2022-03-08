@@ -9,12 +9,13 @@ from Jetson import GPIO
 from robot import Robot, Action as RobotAction
 import asyncio
 from capture_cam import StereoCams
-from calibration_server import decode_img_to_byte
+from calibration import decode_img_to_byte, safe_frames
 
 left_img = None
 right_img = None
 host='192.168.100.11'
-# port=8765
+app_port = 8765
+broadcast_port = 8766
 robot = Robot()
 app_stop = None
 cam_stop = None
@@ -80,8 +81,8 @@ async def broadcast_cam(websocket: WebSocketServerProtocol):
 
 
 async def ws_handler(websocket: WebSocketServerProtocol, _):
-  path = websocket.path
   global app_stop
+  path = websocket.path
   try:
     print('{} starts'.format(path))
     if path == '/command':
@@ -100,16 +101,17 @@ async def app_server():
   curr_lopp = asyncio.get_event_loop()
   app_stop = asyncio.Event(loop=curr_lopp)
 
-  async with serve(ws_handler, host, 8765):
+  async with serve(ws_handler, host, app_port):
     await app_stop.wait()
 
 async def cam_server():
   print('cam server')
   global cam_stop
+  global broadcast_cam
   curr_lopp = asyncio.get_event_loop()
   cam_stop = asyncio.Event(loop=curr_lopp)
 
-  async with serve(ws_handler, host, 8766):
+  async with serve(ws_handler, host, broadcast_port):
     await cam_stop.wait()
 
 def cam_process_task():
@@ -120,13 +122,8 @@ def cam_process_task():
   capture_thread.join()
 
 if __name__ == '__main__':
-
   cam_process = Process(target=cam_process_task)
   cam_process.start()
-
+  
   loop = asyncio.get_event_loop()
   loop.run_until_complete(app_server())  
-  
-
-  if not robot.is_cleaned_up:
-    robot.quit()
