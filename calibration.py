@@ -7,8 +7,7 @@ from websockets.server import serve, WebSocketServerProtocol
 from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
 import os
 
-save_img_path_left = os.path.join(os.getcwd(), 'calibration_img', 'left')
-save_img_path_right = os.path.join(os.getcwd(), 'calibration_img', 'right')
+save_img_dir = os.path.join(os.getcwd(), 'calibration_img')
 
 def setup_img_save_directory():
   if 'calibration_img' not in os.listdir(os.getcwd()):
@@ -25,11 +24,7 @@ def encode_byte_to_img(img_byte):
   return cv2.imdecode(np_img, -1)
 
 def safe_frames(left_img, right_img, counter):
-  cv2.imwrite(
-    os.path.join(save_img_path_left, 'img_{}.jpg'.format(counter)),
-    left_img
-  )
-  cv2.imwrite(
-    os.path.join(save_img_path_right, 'img_{}.jpg'.format(counter)),
-    right_img
-  )
+  left_img_path = os.path.join(save_img_dir, 'left', 'img_{}.jpg'.format(counter))
+  right_img_path = os.path.join(save_img_dir, 'right', 'img_{}.jpg'.format(counter))
+  cv2.imwrite(os.path.join(left_img_path), left_img)
+  cv2.imwrite(os.path.join(right_img_path), right_img)
