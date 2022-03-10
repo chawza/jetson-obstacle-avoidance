@@ -8,7 +8,7 @@ import cv2
 import redis
 import numpy as np
 
-from websockets.exceptions import ConnectionClosedOK
+from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
 from websockets.server import WebSocketServerProtocol, serve
 from robot import Robot, Action as RobotAction
 from capture_cam import StereoCams
@@ -70,7 +70,7 @@ async def listen_controller(websocket: WebSocketServerProtocol):
         print('ROBOT: STOP')
         robot.stop()
       elif action == 'SAVE_FRAME':
-        print('Saving Frame')
+        print('Saving Frame {}'.format(img_counter))
         safe_frames(left_img, right_img, img_counter)
         img_counter += 1
       elif action == 'CALIBRATE':
@@ -110,14 +110,19 @@ async def broadcast_cam(websocket: WebSocketServerProtocol):
 async def ws_handler(websocket: WebSocketServerProtocol, _):
   global app_stop
   path = websocket.path
-  try:
-    print('{} starts'.format(path))
-    if path == '/command':
+
+  if path == '/command':
+    try:
+      print('Robot Commmand: Connected')
       await listen_controller(websocket)
-    if path == '/cam':
+    except ConnectionClosedError:
+      print('Robot Command: Disconnected')
+  if path == '/cam':
+    try:
+      print('Broadcast: Connected')
       await broadcast_cam(websocket)
-  except ConnectionClosedOK:
-    print('{} stops'.format(path))
+    except ConnectionClosedError:
+      print('Broadcast: Disconnected')
 
 async def app_server():
   capture_thread = Thread(target=read_cam_task)
@@ -155,7 +160,7 @@ if __name__ == '__main__':
     calibrate = True
 
   robot = Robot()
-  camera = StereoCams(calibrate=calibrate_arg)
+  camera = StereoCams(calibrate=calibrate)
 
   setup_img_save_directory()
   broadcast_process = Process(target=broadcast_process_task)
