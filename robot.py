@@ -1,7 +1,5 @@
-import sys
 from Jetson import GPIO
 import time
-from threading import Thread
 from getch import getch
 
 class Pin:
@@ -23,6 +21,7 @@ class Robot:
     self.current_action = ''
     self.is_cleaned_up = False
     self._setup_pins()
+    self.mode = 'drive'
   
   def _setup_pins(self):
     GPIO.setmode(GPIO.BOARD)
@@ -108,8 +107,9 @@ class Robot:
   def quit(self):
     self.stop()
     print("Robot Deactivated")
-    GPIO.cleanup()
-    self.is_cleaned_up = True
+    if self.is_cleaned_up is not True:
+      GPIO.cleanup()
+      self.is_cleaned_up = True
 
 def app():
   print('APP RUNS')
