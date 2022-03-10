@@ -11,16 +11,18 @@ class StereoCams():
     self.cam_right = cv2.VideoCapture(self.right_cam_index)
     self.is_calibrate = calibrate
 
-  def read(self, time_split=.01, calibrate=False):
-    if calibrate:
+  def read(self, time_split=.01):
+    if self.is_calibrate:
       lx, ly, rx, ry = calibration.load_calibrate_map_preset()
+      print(lx, ly, rx, ry)
 
     if self.cam_left.isOpened() and self.cam_right.isOpened():
       while True:
         _, left_img = self.cam_left.read()
         _, right_img = self.cam_right.read()
 
-        if calibrate:
+        if self.is_calibrate:
+          # 40.1 ms +- 144 microsecond execution time
           left_img = cv2.remap(left_img, lx, ly, cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT, 0)
           right_img = cv2.remap(right_img, rx, ry, cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT, 0)
 
