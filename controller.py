@@ -32,51 +32,61 @@ def decide_and_update_img(data):
 async def listen_server():
   global stop_client
   print('CAM: Making Connection')
-  conn = await connect('ws://192.168.100.11:8766/cam')
+  conn = await connect('ws://192.168.100.7:8766/cam')
   print('CAM: Server Connected')
-  try:
-    async for data in conn:
-      decide_and_update_img(data)
-  except ConnectionClosedError:
-    print('CAM: Stopped')
+  while not stop_client.is_set():
+    try:
+      async for data in conn:
+        decide_and_update_img(data)
+    except ConnectionClosedError:
+      print('CAM: Stopped')
 
 async def app():
   global stop_client
-  print('APP: Making Connection')
-  async with connect('ws://192.168.100.11:8765/command') as ws_client:
-    print('APP: Server connected')
-    current_key = ''
 
-    while True:
-      key = getch()
-      key = key.decode('utf-8')
-      
-      if current_key != key:
-        current_key = key
-        print('key pressed: {}'.format(current_key))
+  while not stop_client.is_set():
+    print('APP: Making Connection')
+    async with connect('ws://192.168.100.7:8765/command') as ws_client:
+      print('APP: Server connected')
+      current_key = ''
+
+      while True:
+        key = getch()
+        key = key.decode('utf-8')
         
-        if key == 'q' or key == ' ':
-          await ws_client.send('QUIT')
-          break
+        if current_key != key:
+          if key == 'f':
+            await ws_client.send('SAVE_FRAME')
+            continue
 
-        elif key == 'r' or key == ' ':
-          await ws_client.send('RESET')
+          current_key = key
+          print('key pressed: {}'.format(current_key))
+          
+          if key == 'q' or key == ' ':
+            await ws_client.send('QUIT')
+            break
 
-        elif key == 'e':
-          await ws_client.send('STOP')
+          elif key == 'r' or key == ' ':
+            await ws_client.send('RESET')
 
-        elif key == 'w' or key == 's' or key == 'a' or key == 'd':
-          await ws_client.send(ACTION_DICT[key])
-    
-    await ws_client.close()
-    stop_client.set()
-    print('closing app')
-    return 'App Done'
+          elif key == 'e':
+            await ws_client.send('STOP')
+
+          elif key == 'w' or key == 's' or key == 'a' or key == 'd':
+            await ws_client.send(ACTION_DICT[key])
+          
+          await asyncio.sleep(.001)
+      
+      await ws_client.close()
+      stop_client.set()
+      print('APP: Server lost')
+
+    print('APP: Done')
 
 def display_image():
   global img
   global stop_client
-  while True:
+  while not stop_client.is_set():
     if img is not None:
       display_img = cv2.resize(img, dsize=(
         round(img.shape[1]*2),
@@ -100,10 +110,10 @@ if __name__ == '__main__':
   print('Robot Controller Starts')
   control_thread = Thread(target=app_thread)
   listen_server_thread = Thread(target=listen_thread)
+  listen_server_thread.start()
   display_img_thread = Thread(target=display_image)
 
   control_thread.start()
-  listen_server_thread.start()
   display_img_thread.start()
 
   cv2.destroyAllWindows()
