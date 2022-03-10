@@ -98,7 +98,7 @@ def calculate_stereo_map():
   return stereoMapL, stereoMapR
 
 def save_calibration_map_preset(stereoMapL_x, stereoMapL_y, stereoMapR_x, stereoMapR_y):
-  preset_dir = os.path.join(os.getcwd(), 'calibration_img', 'map_conf')
+  preset_dir = os.path.join(os.getcwd(), 'calibration_preset')
   
   np.save(os.path.join(preset_dir, 'stereoMapL_x.npy'), stereoMapL_x)
   np.save(os.path.join(preset_dir, 'stereoMapL_y.npy'), stereoMapL_y)
@@ -106,8 +106,8 @@ def save_calibration_map_preset(stereoMapL_x, stereoMapL_y, stereoMapR_x, stereo
   np.save(os.path.join(preset_dir, 'stereoMapR_y.npy'), stereoMapR_y)
 
 def load_calibrate_map_preset():
-  preset_dir = os.path.join(os.getcwd(), 'calibration_img', 'map_conf')
-  
+  preset_dir = os.path.join(os.getcwd(), 'calibration_preset')
+    
   stereoMapL_x = np.load(os.path.join(preset_dir, 'stereoMapL_x.npy'))
   stereoMapL_y = np.load(os.path.join(preset_dir, 'stereoMapL_y.npy'))
   stereoMapR_x = np.load(os.path.join(preset_dir, 'stereoMapR_x.npy'))
