@@ -107,8 +107,9 @@ class Robot:
   def quit(self):
     self.stop()
     print("Robot Deactivated")
-    GPIO.cleanup()
-    self.is_cleaned_up = True
+    if self.is_cleaned_up is not True:
+      GPIO.cleanup()
+      self.is_cleaned_up = True
 
 def app():
   print('APP RUNS')
