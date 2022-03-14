@@ -12,9 +12,7 @@ class StereoCams():
     self.is_calibrate = calibrate
 
   def read(self, time_split=.01):
-    if self.is_calibrate:
-      lx, ly, rx, ry = calibration.load_calibrate_map_preset()
-      print(lx, ly, rx, ry)
+    lx, ly, rx, ry = calibration.load_calibrate_map_preset()
 
     if self.cam_left.isOpened() and self.cam_right.isOpened():
       while True:
