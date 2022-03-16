@@ -105,8 +105,11 @@ def save_calibration_map_preset(stereoMapL_x, stereoMapL_y, stereoMapR_x, stereo
   np.save(os.path.join(preset_dir, 'stereoMapR_x.npy'), stereoMapR_x)
   np.save(os.path.join(preset_dir, 'stereoMapR_y.npy'), stereoMapR_y)
 
-def load_calibrate_map_preset():
-  preset_dir = os.path.join(os.getcwd(), 'calibration_preset')
+def load_calibrate_map_preset(preset_path = None):
+  if preset_path:
+    preset_dir = preset_path
+  else:
+    preset_dir = os.path.join(os.getcwd(), 'calibration_preset')
 
   stereoMapL_x = np.load(os.path.join(preset_dir, 'stereoMapL_x.npy'))
   stereoMapL_y = np.load(os.path.join(preset_dir, 'stereoMapL_y.npy'))
@@ -115,6 +118,14 @@ def load_calibrate_map_preset():
 
   return stereoMapL_x, stereoMapL_y, stereoMapR_x, stereoMapR_y
 
+def calibrate_imgs(left, right, preset_path):
+  left_x, left_y, right_x, right_y = load_calibrate_map_preset(preset_path)
+  
+  calibrated_left = cv2.remap(left, left_x, left_y, cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT, 0)
+  calibnrated_right = cv2.remap(right, right_x, right_y, cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT, 0)
+
+  return calibrated_left, calibnrated_right
+  
 def calibrate_cam():
   print('Camera Calibrating')
   stereoMapL, stereoMapR = calculate_stereo_map()
