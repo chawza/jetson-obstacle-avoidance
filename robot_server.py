@@ -13,47 +13,32 @@ import numpy as np
 
 from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
 from websockets.server import WebSocketServerProtocol, serve
+import SharedArray as sa
+
 from robot import Robot, Action as RobotAction
 from capture_cam import StereoCams
 from calibration import decode_img_to_byte, safe_frames, encode_byte_to_img, setup_img_save_directory
 import calibration
 
-
-l_img = None
-left_img = None
-right_img = None
 host=os.getenv('APP_HOST')
 app_port = os.getenv('APP_PORT')
 broadcast_port = os.getenv('BROADCAST_PORT')
 app_stop = None
 cam_stop = None
-r = redis.Redis('localhost', 6379, db=0)
 
-def redis_img_sync():
-  import time
-  global app_stop
-  global left_img
-  global right_img
-  global r
-
-  while app_stop is None:
-    time.sleep(.1)
-
-  while not app_stop.is_set():
-    if left_img is not None:
-      r.set('left_img', decode_img_to_byte(left_img))
-      r.set('right_img', decode_img_to_byte(right_img))
-    time.sleep(0.01)
+captured_img_size = (480, 640, 3)
 
 def read_cam_task():
-  global left_img
-  global right_img
   global app_stop
   global camera
+  global shared_left
+  global shared_right
   for left, right in camera.read(time_split=.001):
     if app_stop.is_set():
       break
-    left_img, right_img = left, right
+
+    shared_left[:] = left.copy()
+    shared_right[:] = right.copy()
   camera.clean_up()
 
 async def listen_controller(websocket: WebSocketServerProtocol):
@@ -62,6 +47,8 @@ async def listen_controller(websocket: WebSocketServerProtocol):
   global app_stop
   global robot
   global camera
+  global shared_left
+  global shared_right
   async for data in websocket:
     action = data
     if action == RobotAction.forward:
@@ -82,7 +69,7 @@ async def listen_controller(websocket: WebSocketServerProtocol):
       robot.stop()
     elif action == 'SAVE_FRAME':
       print('Saving Frame {}'.format(img_counter))
-      safe_frames(left_img, right_img, img_counter)
+      safe_frames(shared_left, shared_right, img_counter)
       img_counter += 1
     elif action == 'CALIBRATE':
       calibration.calibrate_cam()
@@ -101,27 +88,21 @@ async def listen_controller(websocket: WebSocketServerProtocol):
 
 async def broadcast_cam(websocket: WebSocketServerProtocol):
   print('borad cast cam in port {}'.format(websocket.port))
-  r2 = redis.Redis('localhost', 6379, db=0)
+  left_img = sa.attach('left')
+  right_img = sa.attach('right')
   while True:
-    byte_left = r2.get('left_img')
-    byte_right = r2.get('right_img')
-    if byte_left is not None:
-      l_img = encode_byte_to_img(byte_left)
-      r_img = encode_byte_to_img(byte_right)
-      img = np.hstack((l_img, r_img))
-      grey_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-      # grey_img = cv2.cvtColor(l_img, cv2.COLOR_BGR2GRAY)
-      grey_img = cv2.resize(grey_img, dsize=(
-        round(grey_img.shape[1]/3),
-        round(grey_img.shape[0]/3),
-      ))
-      byte_img = decode_img_to_byte(grey_img)
-      await websocket.send(byte_img)
-    asyncio.sleep(0.1)
+    img = np.hstack((left_img, right_img))
+    grey_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    grey_img = cv2.resize(grey_img, dsize=(
+      round(grey_img.shape[1]/3),
+      round(grey_img.shape[0]/3),
+    ))
+    byte_img = decode_img_to_byte(grey_img)
+    await websocket.send(byte_img)
+    asyncio.sleep(0.01)
 
 
 async def ws_handler(websocket: WebSocketServerProtocol, _):
-  global app_stop
   path = websocket.path
 
   if path == '/command':
@@ -129,20 +110,26 @@ async def ws_handler(websocket: WebSocketServerProtocol, _):
       print('Robot Commmand: Connected')
       await listen_controller(websocket)
     except ConnectionClosedError:
-      print('Robot Command: Disconnected')
+      print('Robot Commmand: Reconnecting')
+    except ConnectionClosedOK:
+      print('Robot Commmand: Disconnected')
       robot.stop()
+
+async def broadcast_handler(websocket: WebSocketServerProtocol, _):
+  path = websocket.path
+
   if path == '/cam':
     try:
       print('Broadcast: Connected')
       await broadcast_cam(websocket)
     except ConnectionClosedError:
+      print('Broadcast: Reconnecting')
+    except ConnectionClosedOK:
       print('Broadcast: Disconnected')
 
 async def app_server():
   capture_thread = Thread(target=read_cam_task)
   capture_thread.start()
-  redis_sync_thread = Thread(target=redis_img_sync)
-  redis_sync_thread.start()
 
   global app_stop
   curr_lopp = asyncio.get_event_loop()
@@ -152,7 +139,6 @@ async def app_server():
     await app_stop.wait()
 
   capture_thread.join()
-  redis_sync_thread.join()
 
 async def broadcast_server():
   print('Broadcast server Activiated')
@@ -160,18 +146,33 @@ async def broadcast_server():
   curr_lopp = asyncio.get_event_loop()
   cam_stop = asyncio.Event(loop=curr_lopp)
 
-  async with serve(ws_handler, host, broadcast_port):
+  async with serve(broadcast_handler, host, broadcast_port):
     await cam_stop.wait()
 
 def broadcast_process_task():
   loop = asyncio.new_event_loop()
   loop.run_until_complete(broadcast_server())
 
+def clean_shred_memory():
+  shared_objects = sa.list()
+  if len(shared_objects) < 1:
+    return
+
+  delete_names = ['left', 'right']
+  for obj in shared_objects:
+    obj_name = obj.name.decode()
+    if obj_name in delete_names:
+      sa.delete(obj_name)
+
 if __name__ == '__main__':
   calibrate_arg = False
   if '--calibrate-cam' in sys.argv:
     print('camera calibration activated')
     calibrate_arg = True
+
+  clean_shred_memory()
+  shared_left = sa.create('left', captured_img_size, np.uint8)
+  shared_right = sa.create('right', captured_img_size, np.uint8)
 
   robot = Robot()
   camera = StereoCams(calibrate=calibrate_arg)
@@ -181,4 +182,5 @@ if __name__ == '__main__':
   broadcast_process.start()
 
   loop = asyncio.get_event_loop()
-  loop.run_until_complete(app_server())  
+  loop.run_until_complete(app_server())
+  print('main ends')
