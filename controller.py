@@ -22,6 +22,7 @@ ACTION_DICT = {
 
 img = None
 stop_client = asyncio.Event()
+host = '192.168.100.13'
 
 def decide_and_update_img(data):
   global img
@@ -30,60 +31,75 @@ def decide_and_update_img(data):
   img = decoded_img.copy()
 
 async def listen_server():
+  print('Listen: Start')
   global stop_client
-  print('CAM: Making Connection')
-  conn = await connect('ws://192.168.100.7:8766/cam')
-  print('CAM: Server Connected')
-  while not stop_client.is_set():
+  while True:
     try:
+      if stop_client.is_set():
+        break
+      conn = await connect('ws://{}:8766/cam'.format(host), max_queue=None)
+      print('CAM: Server Connected')
       async for data in conn:
         decide_and_update_img(data)
+        if stop_client.is_set():
+          break
     except ConnectionClosedError:
-      print('CAM: Stopped')
+      print('CAM: Disonnected')
+  print('Listen: Stop')
 
 async def app():
   global stop_client
 
   while not stop_client.is_set():
-    print('APP: Making Connection')
-    async with connect('ws://192.168.100.7:8765/command') as ws_client:
-      print('APP: Server connected')
-      current_key = ''
+    try:
+      print('APP: Making Connection')
+      async with connect('ws://{}:8765/command'.format(host), ping_interval=1, ping_timeout=1) as ws_client:
+        print('APP: Server connected')
+        current_key = ''
 
-      while True:
-        key = getch()
-        key = key.decode('utf-8')
-        
-        if current_key != key:
+        while True:
+          key = getch()
+          key = key.decode('utf-8')
+          
           if key == 'f':
             await ws_client.send('SAVE_FRAME')
             continue
+          elif key == 'c':
+            await ws_client.send('TOGGLE_CAM_CALIBRATE')
+            continue
 
-          current_key = key
-          print('key pressed: {}'.format(current_key))
-          
-          if key == 'q' or key == ' ':
-            await ws_client.send('QUIT')
-            break
+          if current_key != key:
+            current_key = key
+            print('key pressed: {}'.format(current_key))
+            
+            if key == 'q' or key == ' ':
+              await ws_client.send('QUIT')
+              break
 
-          elif key == 'r' or key == ' ':
-            await ws_client.send('RESET')
+            elif key == 'r' or key == ' ':
+              await ws_client.send('RESET')
 
-          elif key == 'e':
-            await ws_client.send('STOP')
+            elif key == 'e':
+              await ws_client.send('STOP')
 
-          elif key == 'w' or key == 's' or key == 'a' or key == 'd':
-            await ws_client.send(ACTION_DICT[key])
-          
-          await asyncio.sleep(.001)
-      
+            elif key == 'w' or key == 's' or key == 'a' or key == 'd':
+              await ws_client.send(ACTION_DICT[key])
+            
+            
+            await asyncio.sleep(.001)
+        
+        await ws_client.close()
+        stop_client.set()
+        print('APP: Server Disconnected')
+
+    except ConnectionClosedError:
       await ws_client.close()
-      stop_client.set()
-      print('APP: Server lost')
+      print('APP: Reconnecting')
 
     print('APP: Done')
 
 def display_image():
+  print('Display Broadcast: Start')
   global img
   global stop_client
   while not stop_client.is_set():
@@ -97,6 +113,7 @@ def display_image():
     
     if stop_client.is_set():
       break
+  print('Display Broadcast: Stop')
 
 def listen_thread():
   loop = asyncio.new_event_loop()
@@ -109,12 +126,17 @@ def app_thread():
 if __name__ == '__main__':
   print('Robot Controller Starts')
   control_thread = Thread(target=app_thread)
+  control_thread.start()
+
   listen_server_thread = Thread(target=listen_thread)
   listen_server_thread.start()
-  display_img_thread = Thread(target=display_image)
 
-  control_thread.start()
+  display_img_thread = Thread(target=display_image)
   display_img_thread.start()
 
+  control_thread.join()
+  display_img_thread.join()
+  listen_server_thread.join()
   cv2.destroyAllWindows()
+  exit()
   
