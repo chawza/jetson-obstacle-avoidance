@@ -18,6 +18,10 @@ def encode_byte_to_img(img_byte):
   np_img = np.frombuffer(img_byte, np.uint8)
   return cv2.imdecode(np_img, -1)
 
+def encode_img_binary_to_byte(binary_img):
+  img = np.round(binary_img * 255)
+  return decode_img_to_byte(img)
+  
 def safe_frames(left_img, right_img, counter):
   left_img_path = os.path.join(save_img_dir, 'left', 'img_{}.jpg'.format(counter))
   right_img_path = os.path.join(save_img_dir, 'right', 'img_{}.jpg'.format(counter))
@@ -118,7 +122,7 @@ def load_calibrate_map_preset(preset_path = None):
 
   return stereoMapL_x, stereoMapL_y, stereoMapR_x, stereoMapR_y
 
-def calibrate_imgs(left, right, preset_path):
+def calibrate_imgs(left, right, preset_path=None):
   left_x, left_y, right_x, right_y = load_calibrate_map_preset(preset_path)
   
   calibrated_left = cv2.remap(left, left_x, left_y, cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT, 0)

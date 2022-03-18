@@ -1,5 +1,7 @@
 import sys
 from dotenv import load_dotenv
+
+from depthestimation import DepthEstimator
 load_dotenv()
 import os
 from threading import Thread
@@ -71,11 +73,6 @@ async def listen_controller(websocket: WebSocketServerProtocol):
       print('Saving Frame {}'.format(img_counter))
       safe_frames(shared_left, shared_right, img_counter)
       img_counter += 1
-    elif action == 'CALIBRATE':
-      calibration.calibrate_cam()
-    elif action == 'TOGGLE_CAM_CALIBRATE':
-      camera.is_calibrate = not camera.is_calibrate
-      print('Toggle from {} to {}'.format(not camera.is_calibrate, camera.is_calibrate))
     elif action == 'QUIT':
       robot.quit()
       await websocket.close()
@@ -91,15 +88,16 @@ async def broadcast_cam(websocket: WebSocketServerProtocol):
   left_img = sa.attach('left')
   right_img = sa.attach('right')
   while True:
-    img = np.hstack((left_img, right_img))
-    grey_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    grey_img = cv2.resize(grey_img, dsize=(
-      round(grey_img.shape[1]/3),
-      round(grey_img.shape[0]/3),
+    # img = np.hstack((left_img, right_img))
+    # grey_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    disparity = depth_estimator.estimate(left_img, right_img)
+    grey_img = cv2.resize(disparity, dsize=(
+      round(disparity.shape[1]/3),
+      round(disparity.shape[0]/3),
     ))
-    byte_img = decode_img_to_byte(grey_img)
+    byte_img = calibration.encode_img_binary_to_byte(grey_img)
     await websocket.send(byte_img)
-    asyncio.sleep(0.01)
+    asyncio.sleep(0.1)
 
 
 async def ws_handler(websocket: WebSocketServerProtocol, _):
@@ -116,6 +114,7 @@ async def ws_handler(websocket: WebSocketServerProtocol, _):
       robot.stop()
 
 async def broadcast_handler(websocket: WebSocketServerProtocol, _):
+  global cam_stop
   path = websocket.path
 
   if path == '/cam':
@@ -126,6 +125,7 @@ async def broadcast_handler(websocket: WebSocketServerProtocol, _):
       print('Broadcast: Reconnecting')
     except ConnectionClosedOK:
       print('Broadcast: Disconnected')
+      cam_stop.set()
 
 async def app_server():
   capture_thread = Thread(target=read_cam_task)
@@ -165,17 +165,14 @@ def clean_shred_memory():
       sa.delete(obj_name)
 
 if __name__ == '__main__':
-  calibrate_arg = False
-  if '--calibrate-cam' in sys.argv:
-    print('camera calibration activated')
-    calibrate_arg = True
 
   clean_shred_memory()
   shared_left = sa.create('left', captured_img_size, np.uint8)
   shared_right = sa.create('right', captured_img_size, np.uint8)
 
   robot = Robot()
-  camera = StereoCams(calibrate=calibrate_arg)
+  camera = StereoCams()
+  depth_estimator = DepthEstimator()
 
   setup_img_save_directory()
   broadcast_process = Process(target=broadcast_process_task)

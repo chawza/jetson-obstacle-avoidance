@@ -15,7 +15,7 @@ if not cam_left.isOpened():
 if not cam_right.isOpened():
   raise Exception('Cannot read Right Camera')
 
-while(True):
+while True:
   left_is_captured, left_img = cam_left.read()
   right_is_captured, right_img = cam_right.read()
 
