@@ -103,6 +103,9 @@ def calculate_stereo_map():
 
 def save_calibration_map_preset(stereoMapL_x, stereoMapL_y, stereoMapR_x, stereoMapR_y):
   preset_dir = os.path.join(os.getcwd(), 'calibration_preset')
+
+  if not os.path.exists(preset_dir):
+    os.mkdir(preset_dir)
   
   np.save(os.path.join(preset_dir, 'stereoMapL_x.npy'), stereoMapL_x)
   np.save(os.path.join(preset_dir, 'stereoMapL_y.npy'), stereoMapL_y)
@@ -135,3 +138,14 @@ def calibrate_cam():
   stereoMapL, stereoMapR = calculate_stereo_map()
   save_calibration_map_preset(stereoMapL[0], stereoMapL[1], stereoMapR[0], stereoMapR[1])
   print('Done camera calibration')
+
+class CalibrateSession():
+  def __init__(self, initial_img_indx = None):
+    self.img_index = initial_img_indx or initiate_img_counter()
+
+  def capture_frame(self):
+    safe_frames()
+    self.img_index += 1
+  
+  def calibrate(self):
+    calibrate_cam()
