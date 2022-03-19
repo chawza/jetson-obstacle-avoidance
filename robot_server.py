@@ -10,7 +10,6 @@ import asyncio
 from getch import getch
 
 import cv2
-import redis
 import numpy as np
 
 from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
@@ -87,17 +86,24 @@ async def broadcast_cam(websocket: WebSocketServerProtocol):
   print('borad cast cam in port {}'.format(websocket.port))
   left_img = sa.attach('left')
   right_img = sa.attach('right')
+  import time
   while True:
-    # img = np.hstack((left_img, right_img))
-    # grey_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    disparity = depth_estimator.estimate(left_img, right_img)
-    grey_img = cv2.resize(disparity, dsize=(
-      round(disparity.shape[1]/3),
-      round(disparity.shape[0]/3),
+    # img_to_send = np.hstack((left_img, right_img))
+    # img_to_send = cv2.cvtColor(img_to_send, cv2.COLOR_BGR2GRAY)
+    # img_to_send = cv2.cvtColor(left_img, cv2.COLOR_BGR2GRAY)
+    start = time.perf_counter()
+    img_to_send = depth_estimator.get_depth(left_img, right_img)
+    img_to_send = cv2.normalize(img_to_send, None, 0, 1, cv2.NORM_MINMAX, dtype=cv2.CV_64F)
+    end = time.perf_counter()
+    print('time: {:.4f}'.format(round(end-start, 4)))
+    img_to_send = cv2.resize(img_to_send, dsize=(
+      round(img_to_send.shape[1]/3),
+      round(img_to_send.shape[0]/3),
     ))
-    byte_img = calibration.encode_img_binary_to_byte(grey_img)
+    byte_img = calibration.encode_img_binary_to_byte(img_to_send)
+    # byte_img = calibration.decode_img_to_byte(img_to_send)
     await websocket.send(byte_img)
-    asyncio.sleep(0.1)
+    await asyncio.sleep(0.1)
 
 
 async def ws_handler(websocket: WebSocketServerProtocol, _):

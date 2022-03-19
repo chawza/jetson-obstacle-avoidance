@@ -3,12 +3,17 @@ import time
 import calibration
 
 class StereoCams():
-  def __init__(self):
+  def __init__(self, capture_size=(640, 480)):
     self.left_cam_index = 0
     self.right_cam_index = 1
     self.img = None
     self.cam_left = cv2.VideoCapture(self.left_cam_index)
     self.cam_right = cv2.VideoCapture(self.right_cam_index)
+
+    self.cam_left.set(cv2.CAP_PROP_FRAME_WIDTH, capture_size[0])
+    self.cam_left.set(cv2.CAP_PROP_FRAME_HEIGHT, capture_size[1])
+    self.cam_right.set(cv2.CAP_PROP_FRAME_WIDTH, capture_size[0])
+    self.cam_right.set(cv2.CAP_PROP_FRAME_HEIGHT, capture_size[1])
 
   def read(self, time_split=.01):
     if self.cam_left.isOpened() and self.cam_right.isOpened():
