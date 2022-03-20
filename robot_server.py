@@ -5,7 +5,6 @@ from depthestimation import DepthEstimator
 load_dotenv()
 import os
 from threading import Thread
-from multiprocessing import Process
 import asyncio
 from getch import getch
 
@@ -16,6 +15,7 @@ from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
 from websockets.server import WebSocketServerProtocol, serve
 import SharedArray as sa
 
+from broadcast import Broadcast
 from robot import Robot, Action as RobotAction
 from capture_cam import StereoCams
 from calibration import decode_img_to_byte, safe_frames, encode_byte_to_img, setup_img_save_directory
@@ -120,18 +120,37 @@ async def ws_handler(websocket: WebSocketServerProtocol, _):
       robot.stop()
 
 async def broadcast_handler(websocket: WebSocketServerProtocol, _):
-  global cam_stop
   path = websocket.path
-
+  left_img = sa.attach('left')
+  right_img = sa.attach('right')
   if path == '/cam':
     try:
       print('Broadcast: Connected')
-      await broadcast_cam(websocket)
+      print('borad cast cam in port {}'.format(websocket.port))
+      import time
+      while True:
+        start = time.perf_counter()
+        img_to_send = np.hstack((left_img, right_img))
+        # img_to_send = cv2.cvtColor(img_to_send, cv2.COLOR_BGR2GRAY)
+        # img_to_send = cv2.cvtColor(left_img, cv2.COLOR_BGR2GRAY)
+        # img_to_send = depth_estimator.get_depth(left_img, right_img)
+        # img_to_send = depth_estimator.get_disparity(left_img, right_img)
+        # img_to_send = cv2.normalize(img_to_send, None, 0, 1, cv2.NORM_MINMAX, dtype=cv2.CV_64F)
+        end = time.perf_counter()
+        print('time: {:.4f}'.format(round(end-start, 4)))
+        img_to_send = cv2.resize(img_to_send, dsize=(
+          round(img_to_send.shape[1]/3),
+          round(img_to_send.shape[0]/3),
+        ))
+        # byte_img = calibration.encode_img_binary_to_byte(img_to_send)
+        byte_img = calibration.decode_img_to_byte(img_to_send)
+        await websocket.send(byte_img)
+        await asyncio.sleep(0.1)
     except ConnectionClosedError:
       print('Broadcast: Reconnecting')
     except ConnectionClosedOK:
       print('Broadcast: Disconnected')
-      cam_stop.set()
+
 
 async def app_server():
   capture_thread = Thread(target=read_cam_task)
@@ -146,19 +165,6 @@ async def app_server():
 
   capture_thread.join()
 
-async def broadcast_server():
-  print('Broadcast server Activiated')
-  global cam_stop
-  curr_lopp = asyncio.get_event_loop()
-  cam_stop = asyncio.Event(loop=curr_lopp)
-
-  async with serve(broadcast_handler, host, broadcast_port):
-    await cam_stop.wait()
-
-def broadcast_process_task():
-  loop = asyncio.new_event_loop()
-  loop.run_until_complete(broadcast_server())
-
 def clean_shred_memory():
   shared_objects = sa.list()
   if len(shared_objects) < 1:
@@ -171,19 +177,22 @@ def clean_shred_memory():
       sa.delete(obj_name)
 
 if __name__ == '__main__':
-
+  # initial setup
+  setup_img_save_directory()
   clean_shred_memory()
+
   shared_left = sa.create('left', captured_img_size, np.uint8)
   shared_right = sa.create('right', captured_img_size, np.uint8)
 
   robot = Robot()
   camera = StereoCams()
   depth_estimator = DepthEstimator()
-
-  setup_img_save_directory()
-  broadcast_process = Process(target=broadcast_process_task)
-  broadcast_process.start()
+  
+  broadcast_server = Broadcast(broadcast_handler, host=host, port=broadcast_port)
+  broadcast_server.start()
 
   loop = asyncio.get_event_loop()
   loop.run_until_complete(app_server())
+
+  broadcast_server.join()
   print('main ends')

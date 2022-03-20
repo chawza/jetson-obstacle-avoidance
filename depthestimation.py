@@ -27,7 +27,7 @@ class DepthEstimator():
 
   def get_depth(self, left_img, right_img, max_depth = 300, min_depth=0):
     disparity = self.get_disparity(left_img, right_img)
-    depth = self._estimate_depth(disparity)
+    depth = self._estimate_depth(disparity, max_depth)
 
     # filte out of range object
     depth[depth < min_depth] = min_depth
@@ -42,9 +42,10 @@ class DepthEstimator():
     return disparity
 
 
-  def _estimate_depth(self, disparity):
+  def _estimate_depth(self, disparity, max_depth):
     M = (self.focal * self.baseline)
-    depth =  np.divide(M, disparity, where=disparity != 0)
+    depth =  np.divide(M, disparity, where=disparity >= 0)
+    depth[disparity <= 0] = max_depth
     return depth
   
   def scale_depth(self, disparity):
