@@ -18,6 +18,10 @@ def encode_byte_to_img(img_byte):
   np_img = np.frombuffer(img_byte, np.uint8)
   return cv2.imdecode(np_img, -1)
 
+def encode_img_binary_to_byte(binary_img):
+  img = np.round(binary_img * 255)
+  return decode_img_to_byte(img)
+  
 def safe_frames(left_img, right_img, counter):
   left_img_path = os.path.join(save_img_dir, 'left', 'img_{}.jpg'.format(counter))
   right_img_path = os.path.join(save_img_dir, 'right', 'img_{}.jpg'.format(counter))
@@ -99,6 +103,9 @@ def calculate_stereo_map():
 
 def save_calibration_map_preset(stereoMapL_x, stereoMapL_y, stereoMapR_x, stereoMapR_y):
   preset_dir = os.path.join(os.getcwd(), 'calibration_preset')
+
+  if not os.path.exists(preset_dir):
+    os.mkdir(preset_dir)
   
   np.save(os.path.join(preset_dir, 'stereoMapL_x.npy'), stereoMapL_x)
   np.save(os.path.join(preset_dir, 'stereoMapL_y.npy'), stereoMapL_y)
@@ -118,8 +125,8 @@ def load_calibrate_map_preset(preset_path = None):
 
   return stereoMapL_x, stereoMapL_y, stereoMapR_x, stereoMapR_y
 
-def calibrate_imgs(left, right, preset_path):
-  left_x, left_y, right_x, right_y = load_calibrate_map_preset(preset_path)
+def calibrate_imgs(left, right, preset):
+  left_x, left_y, right_x, right_y = preset
   
   calibrated_left = cv2.remap(left, left_x, left_y, cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT, 0)
   calibnrated_right = cv2.remap(right, right_x, right_y, cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT, 0)
@@ -131,3 +138,14 @@ def calibrate_cam():
   stereoMapL, stereoMapR = calculate_stereo_map()
   save_calibration_map_preset(stereoMapL[0], stereoMapL[1], stereoMapR[0], stereoMapR[1])
   print('Done camera calibration')
+
+class CalibrateSession():
+  def __init__(self, initial_img_indx = None):
+    self.img_index = initial_img_indx or initiate_img_counter()
+
+  def capture_frame(self):
+    safe_frames()
+    self.img_index += 1
+  
+  def calibrate(self):
+    calibrate_cam()
