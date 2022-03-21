@@ -125,8 +125,8 @@ def load_calibrate_map_preset(preset_path = None):
 
   return stereoMapL_x, stereoMapL_y, stereoMapR_x, stereoMapR_y
 
-def calibrate_imgs(left, right, preset_path=None):
-  left_x, left_y, right_x, right_y = load_calibrate_map_preset(preset_path)
+def calibrate_imgs(left, right, preset):
+  left_x, left_y, right_x, right_y = preset
   
   calibrated_left = cv2.remap(left, left_x, left_y, cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT, 0)
   calibnrated_right = cv2.remap(right, right_x, right_y, cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT, 0)

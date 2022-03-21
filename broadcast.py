@@ -24,7 +24,7 @@ class Broadcast(Process):
       self.host,
       self.port
     ):
-      print('Braodcast server starts')
+      print('Braodcast: serving in {} {}'.format(self.host, self.port))
       await self.cam_stop.wait()
       print('NONE')
 
