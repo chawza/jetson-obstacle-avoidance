@@ -89,7 +89,8 @@ async def listen_controller(websocket: WebSocketServerProtocol):
 
 async def broadcast_handler(websocket: WebSocketServerProtocol, _):
   cam_preset = calibration.load_calibrate_map_preset()
-  depth_estimator = DepthEstimator(numDisparities=48, blockSize=27, minDisparity=10)
+  depth_estimator = DepthEstimator(cam_preset=cam_preset, numDisparities=112, blockSize=27, minDisparity=10)
+  sbm = depth_estimator.stereo
   path = websocket.path
   left_img = sa.attach('left')
   right_img = sa.attach('right')
@@ -100,20 +101,24 @@ async def broadcast_handler(websocket: WebSocketServerProtocol, _):
       import time
       while True:
         start = time.perf_counter()
-        left, right = calibration.calibrate_imgs(left_img, right_img, cam_preset)
+        # left, right = calibration.calibrate_imgs(left_img, right_img, cam_preset)
+        
         # img_to_send = np.hstack((left, right))
-        img_to_send = np.hstack((left_img, right_img))
-        img_to_send2 = np.hstack((left, right))
-        img_to_send = np.vstack((img_to_send, img_to_send2))
+        # img_to_send = np.hstack((left_img, right_img))
+        # img_to_send2 = np.hstack((left, right))
+        # img_to_send = np.vstack((img_to_send, img_to_send2))
+
         # img_to_send = cv2.cvtColor(img_to_send, cv2.COLOR_BGR2GRAY)
         # img_to_send = cv2.cvtColor(left_img, cv2.COLOR_BGR2GRAY)
-        # img_to_send = depth_estimator.get_disparity(left, right)
+        img_to_send = depth_estimator.get_disparity(left_img, right_img)
+        # print(img_to_send)
+        # img_to_send = (img_to_send - sbm.getMinDisparity()) / sbm.getNumDisparities()
         # img_to_send = depth_estimator.get_depth(left_img, right_img)
         # img_to_send = (img_to_send - np.min(img_to_send)) / (np.max(img_to_send) - np.min(img_to_send))
         # img_to_send = cv2.normalize(img_to_send, None, 0, 1, cv2.NORM_MINMAX, dtype=cv2.CV_64F)
         img_to_send = cv2.resize(img_to_send, dsize=(
-          round(img_to_send.shape[1]/4),
-          round(img_to_send.shape[0]/4),
+          round(img_to_send.shape[1]/2),
+          round(img_to_send.shape[0]/2),
         ))
         if img_to_send.dtype == np.float64:
           byte_img = calibration.encode_img_binary_to_byte(img_to_send)
