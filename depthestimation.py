@@ -1,3 +1,5 @@
+import os
+import json
 import cv2
 import numpy as np
 
@@ -14,6 +16,7 @@ class DepthEstimator():
     self.focal = cam_focal
     self.baseline = cam_baseline
     self.cam_preset =  cam_preset
+    self.stereo_preset_filename = 'stereo_preset'
 
 
   def preprocess_img(self, left, right):
@@ -56,3 +59,65 @@ class DepthEstimator():
   def normalize_disparity(self, disparity):
     norm_disp = (disparity - self.stereo.getMinDisparity()) / self.stereo.getNumDisparities()
     return norm_disp
+
+  def save_current_preset(self, param_dir = None):
+    if param_dir == None:
+      param_dir = os.path.join(os.path.dirname(__file__), 'stereo presets')
+
+    sbm = self.stereo
+    params = {
+      'NumDisparities':  sbm.getNumDisparities(),
+      'BlockSize': sbm.getBlockSize(), 
+      'MinDisparity': sbm.getMinDisparity(),
+      'PreFilterType': sbm.getPreFilterType(),
+      'PreFilterSize': sbm.getPreFilterSize(),
+      'PreFilterCap': sbm.getPreFilterCap(),
+      'TextureThreshold': sbm.getTextureThreshold(),
+      'UniquenessRatio': sbm.getUniquenessRatio(),
+      'SpeckleRange': sbm.getSpeckleRange(),
+      'SpeckleWindowSize': sbm.getSpeckleWindowSize(),
+      'Disp12MaxDiff': sbm.getDisp12MaxDiff()
+    }
+
+    preset_idx = self.reserve_stereo_preset_index() + 1
+
+    file_path = os.path.join(param_dir, f'{self.stereo_preset_filename}_{preset_idx}.json')
+    with open(file_path, 'w') as file:
+      json.dump(params, file)
+
+
+  def load_current_preset(self, file_path=None):
+    sbm = self.stereo
+
+    if file_path is None:
+      project_dir = os.path.dirname(__file__)
+      preset_dir = os.path.join(project_dir, 'stereo presets')
+      preset_list = os.listdir(preset_dir)
+      preset_list = [file_name for file_name in preset_list if file_name.endswith('.json')]
+      if len(preset_list) == 0:
+        raise FileNotFoundError('preset not found in {}'.format(preset_dir))
+      preset_list = sorted(preset_list)
+      file_path = preset_list[-1]      
+
+    with open(file_path, 'r') as file:
+      loaded_preset = json.load(file)
+      if len(loaded_preset) < 1:
+        raise RuntimeError('Cannot load stereo preset')
+    
+    for key, value in loaded_preset.items():
+      try:
+        set_func = getattr(sbm, 'set{}'.format(key))
+        set_func(int(value))
+      except Exception as err:
+        print('Unable to set {} to {}'.format(value, key))
+        raise err
+
+  def reserve_stereo_preset_index(current = False):
+    stereo_preset_dir = os.path.join(os.path.dirname(__file__), 'stereo presets')
+    files = os.listdir(stereo_preset_dir)
+    if current:
+      return len(files)
+    return len(files) + 1
+
+
+      

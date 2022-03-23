@@ -3,9 +3,9 @@ import time
 import calibration
 
 class StereoCams():
-  def __init__(self, capture_size=(640, 480)):
-    self.left_cam_index = 0
-    self.right_cam_index = 1
+  def __init__(self, left_idx = 0, right_idx = 1, capture_size=(640, 480)):
+    self.left_cam_index = left_idx
+    self.right_cam_index = right_idx
     self.img = None
     self.cam_left = cv2.VideoCapture(self.left_cam_index)
     self.cam_right = cv2.VideoCapture(self.right_cam_index)
