@@ -23,6 +23,12 @@ def encode_img_binary_to_byte(binary_img):
   return decode_img_to_byte(img)
   
 def safe_frames(left_img, right_img, counter):
+  retL, _ = cv2.findChessboardCorners(left_img, (9,6), None)
+  retR, _ = cv2.findChessboardCorners(right_img, (9,6), None)
+
+  if retL is False or retR is False:
+    raise RuntimeError('Unable to find corners in one of image image')
+
   left_img_path = os.path.join(save_img_dir, 'left', 'img_{}.jpg'.format(counter))
   right_img_path = os.path.join(save_img_dir, 'right', 'img_{}.jpg'.format(counter))
   cv2.imwrite(left_img_path, left_img)
@@ -44,7 +50,7 @@ def get_img_path_list():
 def calculate_stereo_map():
   # source: https://github.com/niconielsen32/ComputerVision/blob/master/stereoVisionCalibration/stereovision_calibration.py
   chessboard_square_length_mm = 17
-  chessboard_corner_size = (10, 6)
+  chessboard_corner_size = (9, 6)
   frame_shape = (640, 480)
   criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
@@ -143,9 +149,13 @@ class CalibrateSession():
   def __init__(self, initial_img_indx = None):
     self.img_index = initial_img_indx or initiate_img_counter()
 
-  def capture_frame(self):
-    safe_frames()
-    self.img_index += 1
+  def capture_frame(self, left, right):
+    try:
+      safe_frames(left, right, self.img_index)
+      print('Saving Frame {}'.format(self.img_index))
+      self.img_index += 1
+    except RuntimeError as error:
+      print(error)
   
   def calibrate(self):
     calibrate_cam()

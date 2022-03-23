@@ -41,13 +41,12 @@ class DepthEstimator():
 
   def _block_maching(self, left, right):
     disparity = self.stereo.compute(left, right)
+    disparity = disparity.astype(np.float32)
     return disparity / 16
 
     # https://answers.opencv.org/question/17076/conversion-focal-distance-from-mm-to-pixels/
   def _estimate_depth(self, disparity, max_depth, min_depth):
-    disparity[disparity <= 0] = .001
     depth =  (self.focal * self.baseline) / disparity
-    print('{} {}'.format(np.max(depth), np.min(depth)))
     # filter out of range object
     depth[depth < min_depth] = min_depth
     depth[depth > max_depth] = max_depth

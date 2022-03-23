@@ -49,7 +49,7 @@ async def listen_controller(websocket: WebSocketServerProtocol):
   global shared_left
   global shared_right
   path = websocket.path
-  img_counter = calibration.initiate_img_counter()
+  calibrate_session = calibration.CalibrateSession()
   if path == '/command':
     print('Robot Commmand: Connected')
     try:
@@ -72,13 +72,11 @@ async def listen_controller(websocket: WebSocketServerProtocol):
           print('ROBOT: STOP')
           robot.stop()
         elif action == 'SAVE_FRAME':
-          print('Saving Frame {}'.format(img_counter))
-          safe_frames(shared_left, shared_right, img_counter)
-          img_counter += 1
+          calibrate_session.capture_frame(shared_left, shared_right)
         elif action == 'QUIT':
           robot.quit()
-          await websocket.close()
           app_stop.set()
+          await websocket.close()
         else:
           print('WHAT', action)
           error_message = f'Unrecognized Action "{action}"'
@@ -90,7 +88,8 @@ async def listen_controller(websocket: WebSocketServerProtocol):
       robot.stop()
 
 async def broadcast_handler(websocket: WebSocketServerProtocol, _):
-  depth_estimator = DepthEstimator(numDisparities=64, blockSize=9, minDisparity=6)
+  cam_preset = calibration.load_calibrate_map_preset()
+  depth_estimator = DepthEstimator(numDisparities=48, blockSize=27, minDisparity=10)
   path = websocket.path
   left_img = sa.attach('left')
   right_img = sa.attach('right')
@@ -101,29 +100,35 @@ async def broadcast_handler(websocket: WebSocketServerProtocol, _):
       import time
       while True:
         start = time.perf_counter()
-        # img_to_send = np.hstack((left_img, right_img))
+        left, right = calibration.calibrate_imgs(left_img, right_img, cam_preset)
+        # img_to_send = np.hstack((left, right))
+        img_to_send = np.hstack((left_img, right_img))
+        img_to_send2 = np.hstack((left, right))
+        img_to_send = np.vstack((img_to_send, img_to_send2))
         # img_to_send = cv2.cvtColor(img_to_send, cv2.COLOR_BGR2GRAY)
         # img_to_send = cv2.cvtColor(left_img, cv2.COLOR_BGR2GRAY)
-        img_to_send = depth_estimator.get_depth(left_img, right_img)
-        # img_to_send = depth_estimator.get_disparity(left_img, right_img)
+        # img_to_send = depth_estimator.get_disparity(left, right)
+        # img_to_send = depth_estimator.get_depth(left_img, right_img)
+        # img_to_send = (img_to_send - np.min(img_to_send)) / (np.max(img_to_send) - np.min(img_to_send))
         # img_to_send = cv2.normalize(img_to_send, None, 0, 1, cv2.NORM_MINMAX, dtype=cv2.CV_64F)
-        img_to_send = (img_to_send - 0) / (100 - 0)
         img_to_send = cv2.resize(img_to_send, dsize=(
-          round(img_to_send.shape[1]/2),
-          round(img_to_send.shape[0]/2),
+          round(img_to_send.shape[1]/4),
+          round(img_to_send.shape[0]/4),
         ))
-        if len(img_to_send.shape) == 2:
+        if img_to_send.dtype == np.float64:
           byte_img = calibration.encode_img_binary_to_byte(img_to_send)
         else:
           byte_img = calibration.decode_img_to_byte(img_to_send)
         await websocket.send(byte_img)
         end = time.perf_counter()
-        print('time: {:.4f}'.format(round(end-start, 4)))
+        # print('time: {:.4f}'.format(round(end-start, 4)))
         await asyncio.sleep(0.1)
     except ConnectionClosedError:
       print('Broadcast: Reconnecting')
     except ConnectionClosedOK:
       print('Broadcast: Disconnected')
+  else:
+    print(f'unknown path {path}')
 
 
 async def app_server():
@@ -161,7 +166,6 @@ if __name__ == '__main__':
 
   robot = Robot()
   camera = StereoCams()
-  depth_estimator = DepthEstimator()
   
   broadcast_server = Broadcast(broadcast_handler, host=host, port=broadcast_port)
   broadcast_server.start()
