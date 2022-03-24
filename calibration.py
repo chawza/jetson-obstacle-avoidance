@@ -89,60 +89,60 @@ def calculate_stereo_map():
   flags = 0
   flags |= cv2.CALIB_FIX_INTRINSIC
 
+  # Camera Callibration
   retL, camera_matrix_left, dist_l, rvecsL, tvecsL = cv2.calibrateCamera(objpoints, corner_points_left, frame_shape, None, None)
-  new_camera_matrix_l, roi_l = cv2.getOptimalNewCameraMatrix(camera_matrix_left, dist_l, frame_shape, 1)
-  retR, camera_matrix_right, dist_r, rvecsR, tvecsR = cv2.calibrateCamera(objpoints, corner_points_right, frame_shape, None, None)
-  new_camera_matrix_r, roi_r = cv2.getOptimalNewCameraMatrix(camera_matrix_right, dist_l, frame_shape, 1)
+  new_camera_matrix_l, _  = cv2.getOptimalNewCameraMatrix(camera_matrix_left, dist_l, frame_shape, 1, frame_shape)
   
-  retStereo, new_camera_matrix_l, dist_L, new_camera_matrix_r, dist_R, rot, trans, essenstial_matrix, fundamental_matrix = cv2.stereoCalibrate(
-    objpoints, corner_points_left, corner_points_right, new_camera_matrix_l, dist_l, new_camera_matrix_r, dist_r, frame_shape, criteria, flags
+  retR, camera_matrix_right, dist_r, rvecsR, tvecsR = cv2.calibrateCamera(objpoints, corner_points_right, frame_shape, None, None)
+  new_camera_matrix_r, _ = cv2.getOptimalNewCameraMatrix(camera_matrix_right, dist_r, frame_shape, 1, frame_shape)
+  
+  # Stereo Calibration
+  retStereo, new_camera_matrix_l, dist_l, new_camera_matrix_r, dist_r, rot, trans, essenstial_matrix, fundamental_matrix = cv2.stereoCalibrate(
+    objpoints, corner_points_left, corner_points_right, new_camera_matrix_l, dist_l, new_camera_matrix_r, dist_r, frame_shape, flags=flags, criteria=criteria
   )
 
-  rectL, rectR, project_matrix_l, projecet_matrix_r, Q, roi_L, roi_R = cv2.stereoRectify(
-    new_camera_matrix_l, dist_l, new_camera_matrix_r, dist_r, frame_shape, rot, trans, 1, (0,0)
+  rectL, rectR, project_matrix_l, project_matrix_r, Q, roi_L, roi_R = cv2.stereoRectify(
+    new_camera_matrix_l, dist_l, new_camera_matrix_r, dist_r, frame_shape, rot, trans
   )
 
-  stereoMapL = cv2.initUndistortRectifyMap(new_camera_matrix_l, dist_l, rectL, project_matrix_l, frame_shape, cv2.CV_16SC2)
-  stereoMapR = cv2.initUndistortRectifyMap(new_camera_matrix_r, dist_l, rectR, projecet_matrix_r, frame_shape, cv2.CV_16SC2)
-    
+  stereoMapL = cv2.initUndistortRectifyMap(new_camera_matrix_l, dist_l, rectL, project_matrix_l, frame_shape, m1type=cv2.CV_16SC2)
+  stereoMapR = cv2.initUndistortRectifyMap(new_camera_matrix_r, dist_r, rectR, project_matrix_r, frame_shape, m1type=cv2.CV_16SC2)
+
   return stereoMapL, stereoMapR
 
-def save_calibration_map_preset(stereoMapL_x, stereoMapL_y, stereoMapR_x, stereoMapR_y):
+def save_calibration_map_preset(stereoMapL, stereoMapR):
   preset_dir = os.path.join(os.getcwd(), 'calibration_preset')
 
   if not os.path.exists(preset_dir):
     os.mkdir(preset_dir)
   
-  np.save(os.path.join(preset_dir, 'stereoMapL_x.npy'), stereoMapL_x)
-  np.save(os.path.join(preset_dir, 'stereoMapL_y.npy'), stereoMapL_y)
-  np.save(os.path.join(preset_dir, 'stereoMapR_x.npy'), stereoMapR_x)
-  np.save(os.path.join(preset_dir, 'stereoMapR_y.npy'), stereoMapR_y)
+  np.save(os.path.join(preset_dir, 'stereoMapL_x.npy'), stereoMapL[0])
+  np.save(os.path.join(preset_dir, 'stereoMapL_y.npy'), stereoMapL[1])
+  np.save(os.path.join(preset_dir, 'stereoMapR_x.npy'), stereoMapR[0])
+  np.save(os.path.join(preset_dir, 'stereoMapR_y.npy'), stereoMapR[1])
 
-def load_calibrate_map_preset(preset_path = None):
-  if preset_path:
-    preset_dir = preset_path
-  else:
+def load_calibrate_map_preset(preset_dir = None):
+  if preset_dir == None:
     preset_dir = os.path.join(os.getcwd(), 'calibration_preset')
 
+  print('loading stereo camera preset from {}'.format(preset_dir))
   stereoMapL_x = np.load(os.path.join(preset_dir, 'stereoMapL_x.npy'))
   stereoMapL_y = np.load(os.path.join(preset_dir, 'stereoMapL_y.npy'))
   stereoMapR_x = np.load(os.path.join(preset_dir, 'stereoMapR_x.npy'))
   stereoMapR_y = np.load(os.path.join(preset_dir, 'stereoMapR_y.npy'))
 
-  return stereoMapL_x, stereoMapL_y, stereoMapR_x, stereoMapR_y
+  return (stereoMapL_x, stereoMapL_y), (stereoMapR_x, stereoMapR_y)
 
 def calibrate_imgs(left, right, preset):
-  left_x, left_y, right_x, right_y = preset
-  
+  (left_x, left_y), (right_x, right_y) = preset
   calibrated_left = cv2.remap(left, left_x, left_y, cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT, 0)
-  calibnrated_right = cv2.remap(right, right_x, right_y, cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT, 0)
-
-  return calibrated_left, calibnrated_right
+  calibrated_right = cv2.remap(right, right_x, right_y, cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT, 0)
+  return calibrated_left, calibrated_right
   
 def calibrate_cam():
   print('Camera Calibrating')
   stereoMapL, stereoMapR = calculate_stereo_map()
-  save_calibration_map_preset(stereoMapL[0], stereoMapL[1], stereoMapR[0], stereoMapR[1])
+  save_calibration_map_preset(stereoMapL, stereoMapR)
   print('Done camera calibration')
 
 class CalibrateSession():
