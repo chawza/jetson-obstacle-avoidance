@@ -1,17 +1,18 @@
 # UI display for controlling the Robot and estabilish connection to robot's server
+from dotenv import load_dotenv
+load_dotenv()
+
+import os
 import asyncio
-from base64 import decode
-from http import client
-from tracemalloc import stop
-from turtle import update
-import cv2
-import tkinter as tk
-from cv2 import exp
-from websockets.client import connect
-from websockets.exceptions import ConnectionClosedError
-from  msvcrt import getch
-import numpy as np
 from threading import Thread
+from  msvcrt import getch
+
+import cv2
+import numpy as np
+
+from websockets.client import connect
+from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
+import calibration
 
 ACTION_DICT = {
   'w': 'FORWARD',
@@ -20,14 +21,16 @@ ACTION_DICT = {
   'd': 'RIGHT'
 }
 
+host = os.getenv('APP_HOST')
+app_port = os.getenv('APP_PORT')
+broadcast_port = os.getenv('BROADCAST_PORT')
+
 img = None
 stop_client = asyncio.Event()
-host = '192.168.100.13'
 
 def decide_and_update_img(data):
   global img
-  np_img = np.frombuffer(data, np.uint8)
-  decoded_img = cv2.imdecode(np_img, -1)
+  decoded_img = calibration.encode_byte_to_img(data)
   img = decoded_img.copy()
 
 async def listen_server():
@@ -37,14 +40,18 @@ async def listen_server():
     try:
       if stop_client.is_set():
         break
-      conn = await connect('ws://{}:8766/cam'.format(host), max_queue=None)
+      conn = await connect('ws://{}:{}/cam'.format(host, broadcast_port), max_queue=None)
       print('CAM: Server Connected')
       async for data in conn:
         decide_and_update_img(data)
         if stop_client.is_set():
-          break
+          await conn.close()
     except ConnectionClosedError:
+      print('CAM: Reconnecting')
+    except ConnectionClosedOK:
       print('CAM: Disonnected')
+      break
+
   print('Listen: Stop')
 
 async def app():
@@ -52,8 +59,8 @@ async def app():
 
   while not stop_client.is_set():
     try:
-      print('APP: Making Connection')
-      async with connect('ws://{}:8765/command'.format(host), ping_interval=1, ping_timeout=1) as ws_client:
+      print('APP: Making Connection {} {}'.format(host, 8765))
+      async with connect('ws://{}:{}/command'.format(host, app_port), ping_interval=1, ping_timeout=1) as ws_client:
         print('APP: Server connected')
         current_key = ''
 
@@ -85,7 +92,6 @@ async def app():
             elif key == 'w' or key == 's' or key == 'a' or key == 'd':
               await ws_client.send(ACTION_DICT[key])
             
-            
             await asyncio.sleep(.001)
         
         await ws_client.close()
@@ -102,7 +108,7 @@ def display_image():
   print('Display Broadcast: Start')
   global img
   global stop_client
-  while not stop_client.is_set():
+  while True:
     if img is not None:
       display_img = cv2.resize(img, dsize=(
         round(img.shape[1]*2),
