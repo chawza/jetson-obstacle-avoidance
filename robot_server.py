@@ -88,9 +88,13 @@ async def listen_controller(websocket: WebSocketServerProtocol):
       robot.stop()
 
 async def broadcast_handler(websocket: WebSocketServerProtocol, _):
-  cam_preset = calibration.load_calibrate_map_preset()
-  depth_estimator = DepthEstimator(cam_preset=cam_preset, numDisparities=112, blockSize=27, minDisparity=10)
-  sbm = depth_estimator.stereo
+  try:
+    cam_preset = calibration.load_calibrate_map_preset()
+    depth_estimator = DepthEstimator(cam_preset=cam_preset, numDisparities=112, blockSize=27, minDisparity=10)
+    sbm = depth_estimator.stereo
+  except Exception:
+    print('unable to load cam preset')
+
   path = websocket.path
   left_img = sa.attach('left')
   right_img = sa.attach('right')
@@ -101,6 +105,8 @@ async def broadcast_handler(websocket: WebSocketServerProtocol, _):
       import time
       while True:
         start = time.perf_counter()
+        # left_gray = cv2.cvtColor(left_img, cv2.COLOR_BGR2GRAY)
+        # right_gray = cv2.cvtColor(right_img, cv2.COLOR_BGR2GRAY)
         # left, right = calibration.calibrate_imgs(left_img, right_img, cam_preset)
         
         # img_to_send = np.hstack((left, right))
@@ -111,7 +117,7 @@ async def broadcast_handler(websocket: WebSocketServerProtocol, _):
         # img_to_send = cv2.cvtColor(img_to_send, cv2.COLOR_BGR2GRAY)
         # img_to_send = cv2.cvtColor(left_img, cv2.COLOR_BGR2GRAY)
         img_to_send = depth_estimator.get_disparity(left_img, right_img)
-        # print(img_to_send)
+        # img_to_send = depth_estimator.normalize_disparity(img_to_send)
         # img_to_send = (img_to_send - sbm.getMinDisparity()) / sbm.getNumDisparities()
         # img_to_send = depth_estimator.get_depth(left_img, right_img)
         # img_to_send = (img_to_send - np.min(img_to_send)) / (np.max(img_to_send) - np.min(img_to_send))
