@@ -147,36 +147,49 @@ async def app_server():
   async with serve(listen_controller, host, app_port):
     print('Robot: Server activated in {} {}'.format(host, app_port))
     await app_stop.wait()
+    robot_event[0] = True
 
   capture_thread.join()
 
-def clean_shred_memory():
+def clean_shared_memory():
   shared_objects = sa.list()
   if len(shared_objects) < 1:
     return
 
+  # clean read image
   delete_names = ['left', 'right']
   for obj in shared_objects:
     obj_name = obj.name.decode()
     if obj_name in delete_names:
       sa.delete(obj_name)
+  
+  # setup robot event
+  try:
+    sa.attach('robot_event')
+    sa.delete('robot_event')
+  except FileNotFoundError:
+    pass
+
 
 if __name__ == '__main__':
   # initial setup
   setup_img_save_directory()
-  clean_shred_memory()
+  clean_shared_memory()
 
   shared_left = sa.create('left', captured_img_size, np.uint8)
   shared_right = sa.create('right', captured_img_size, np.uint8)
+  robot_event = sa.create('robot_event', 2, dtype=bool)
 
   robot = Robot()
   camera = StereoCams()
   
-  broadcast_server = Broadcast(broadcast_handler, host=host, port=broadcast_port)
+  broadcast_server = Broadcast(broadcast_handler, host=host, port=broadcast_port, stop_event_name='robot_event')
   broadcast_server.start()
 
   loop = asyncio.get_event_loop()
   loop.run_until_complete(app_server())
 
   broadcast_server.join()
+  camera.clean_up()
+  robot.quit()
   print('main ends')
