@@ -17,13 +17,13 @@ class DepthEstimator():
 
 
   def preprocess_img(self, left, right):
-    left_img, right_img = calibration.calibrate_imgs(left, right, self.cam_preset)
+    cal_left, cal_right = calibration.calibrate_imgs(left, right, preset=self.cam_preset)
 
-    if len(left_img.shape) == 3:
-      left_img = cv2.cvtColor(left_img, cv2.COLOR_BGR2GRAY)
-      right_img = cv2.cvtColor(right_img, cv2.COLOR_BGR2GRAY)
+    if len(cal_left.shape) == 3:
+      cal_left = cv2.cvtColor(cal_left, cv2.COLOR_BGR2GRAY)
+      cal_right = cv2.cvtColor(cal_right, cv2.COLOR_BGR2GRAY)
 
-    return left_img, right_img
+    return cal_left, cal_right
 
 
   # https://learnopencv.com/depth-perception-using-stereo-camera-python-c/
