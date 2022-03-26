@@ -3,10 +3,10 @@ import time
 from getch import getch
 
 class Pin:
-  left_power = 16
-  left_direction = 15
-  right_power = 12
-  right_direction = 11
+  inp1 = 16
+  inp2 = 15
+  inp3 = 12
+  inp4 = 11
 
 class Action:
   forward = 'FORWARD'
@@ -17,99 +17,86 @@ class Action:
 
 class Robot:
   def __init__(self):
-    print('Robot Activated')
     self.current_action = ''
     self.is_cleaned_up = False
     self._setup_pins()
     self.mode = 'drive'
+    self.stop()
+    print('Robot Activated')
   
   def _setup_pins(self):
     GPIO.setmode(GPIO.BOARD)
     GPIO.setup(
       [
-        Pin.left_power,
-        Pin.left_direction,
-        Pin.right_power,
-        Pin.right_direction
+        Pin.inp1,
+        Pin.inp2,
+        Pin.inp3,
+        Pin.inp4
       ],
       GPIO.OUT, initial=GPIO.LOW
     )
+    print('Robot Setup')
+
+  def _left_forward(self):
+    GPIO.output(Pin.inp1, GPIO.LOW)
+    GPIO.output(Pin.inp2, GPIO.HIGH)
+
+  def _left_backward(self):
+    GPIO.output(Pin.inp1, GPIO.HIGH)
+    GPIO.output(Pin.inp2, GPIO.LOW)
+  
+  def _left_stop(self):
+    GPIO.output(Pin.inp1, GPIO.LOW)
+    GPIO.output(Pin.inp2, GPIO.LOW)
+
+  def _right_forward(self):
+    GPIO.output(Pin.inp3, GPIO.HIGH)
+    GPIO.output(Pin.inp4, GPIO.LOW)
+
+  def _right_backward(self):
+    GPIO.output(Pin.inp3, GPIO.LOW)
+    GPIO.output(Pin.inp4, GPIO.HIGH)
+  
+  def _right_stop(self):
+    GPIO.output(Pin.inp3, GPIO.LOW)
+    GPIO.output(Pin.inp4, GPIO.LOW)
 
   def forward(self):
-    GPIO.output(
-      [
-        Pin.left_power,
-        Pin.right_power,
-        Pin.left_direction
-      ],
-      GPIO.HIGH
-    )
-    GPIO.output(
-      Pin.right_direction,
-      GPIO.LOW
-    )
+    self._left_forward()
+    self._right_forward()
+
     self.current_action = Action.forward
 
   def backward(self):
-    GPIO.output(
-      [
-        Pin.left_power,
-        Pin.right_power,
-        Pin.right_direction,
-      ],
-      GPIO.HIGH
-    )
-    GPIO.output(
-      Pin.left_direction,
-      GPIO.LOW
-    )
+    self._left_backward()
+    self._right_backward()
+
     self.current_action = Action.backward
   
-  def left(self):
-    GPIO.output(
-      [
-        Pin.left_power,
-        Pin.right_power,
-      ],
-      GPIO.HIGH
-    )
-    GPIO.output(
-      [
-        Pin.left_direction,
-        Pin.right_direction
-      ],
-      GPIO.LOW
-    )
+  def rotate_left(self):
+    self._left_backward()
+    self._right_forward()
+
     self.current_action = Action.left
   
-  def right(self):
-    GPIO.output(
-      [
-        Pin.left_power,
-        Pin.right_power,
-      ],
-      GPIO.HIGH
-    )
-    GPIO.output(
-      [
-        Pin.left_direction,
-        Pin.right_direction
-      ],
-      GPIO.HIGH
-    )
+  def rotate_right(self):
+    self._right_backward()
+    self._left_forward()
+
     self.current_action = Action.right
 
   def stop(self):
-    print('ROBOT: STOP')
-    self._setup_pins()
+    self._left_stop()
+    self._right_stop()
     self.current_action = Action.stop
 
   def quit(self):
     self.stop()
-    print("Robot Deactivated")
     if self.is_cleaned_up is not True:
       GPIO.cleanup()
+      print('ROBOT Cleanup')
       self.is_cleaned_up = True
+    print("Robot Deactivated")
 
 def app():
   print('APP RUNS')
