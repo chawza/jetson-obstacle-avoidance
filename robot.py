@@ -2,11 +2,22 @@ from Jetson import GPIO
 import time
 from getch import getch
 
+'''
+W : Forward / Speed up
+S : Backward / Speed dowm
+A : turn left
+D : turn right
+Q : rotate left
+E : rotate right
+'''
+
 class Pin:
   inp1 = 16
   inp2 = 15
   inp3 = 12
   inp4 = 11
+  ena = 32
+  enb = 33
 
 class Action:
   forward = 'FORWARD'
@@ -14,13 +25,22 @@ class Action:
   left = 'LEFT'
   right = 'RIGHT'
   stop = 'STOP'
+  rotate_left = 'ROTATE LEFT'
+  rotate_right = 'ROTATE RIGHT'
 
 class Robot:
   def __init__(self):
-    self.current_action = ''
-    self.is_cleaned_up = False
+    # GPIO Pin
     self._setup_pins()
+
+    # Robot variables
+    self.state = ''
+    self.is_cleaned_up = False
     self.mode = 'drive'
+    self.speed = 0  # 0...255
+    self.speed_step = 25
+    
+    # Robot initiation
     self.stop()
     print('Robot Activated')
   
@@ -35,6 +55,10 @@ class Robot:
       ],
       GPIO.OUT, initial=GPIO.LOW
     )
+    self.left_pwm = GPIO.PWM(Pin.ena, 500)
+    self.right_pwm = GPIO.PWM(Pin.enb, 500)
+    self.left_pwm.start(25)
+    self.right_pwm.start(25)
     print('Robot Setup')
 
   def _left_forward(self):
@@ -60,35 +84,75 @@ class Robot:
   def _right_stop(self):
     GPIO.output(Pin.inp3, GPIO.LOW)
     GPIO.output(Pin.inp4, GPIO.LOW)
-
+  
   def forward(self):
-    self._left_forward()
-    self._right_forward()
+    self.speed += self.speed_step
+    if self.speed > 100:
+      self.speed = 100
+    set_speed = self.speed if self.speed >= 0 else -self.speed
+    self.left_pwm.ChangeDutyCycle(set_speed)
+    self.right_pwm.ChangeDutyCycle(set_speed)
 
-    self.current_action = Action.forward
+    if self.speed >= 0:
+      self._left_forward() 
+      self._right_forward()
+      self.state = Action.forward
+    else:
+      self._left_backward()
+      self._right_backward()
+      self.state = Action.backward
 
   def backward(self):
-    self._left_backward()
-    self._right_backward()
+    self.speed -= self.speed_step
+    if self.speed < -100:
+      self.speed = -100
+    
+    set_speed = self.speed if self.speed >= 0 else -self.speed
+    self.left_pwm.ChangeDutyCycle(set_speed)
+    self.right_pwm.ChangeDutyCycle(set_speed)
 
-    self.current_action = Action.backward
-  
-  def rotate_left(self):
+    if self.speed < 0:
+      self._left_backward()
+      self._right_backward()
+      self.state = Action.backward
+    else:
+      self._left_forward()
+      self._right_forward()
+      self.state = Action.forward
+
+  def right(self):
+    
+    self.left_pwm.ChangeDutyCycle(50)
+    self.right_pwm.ChangeDutyCycle(50)
+
     self._left_backward()
     self._right_forward()
 
-    self.current_action = Action.left
+    self.state = Action.left
+
+  def rotate_left(self):
+    self.left_pwm.ChangeDutyCycle(75)
+    self.right_pwm.ChangeDutyCycle(75)
+
+    self._left_backward()
+    self._right_forward()
+
+    self.state = Action.rotate_left
   
   def rotate_right(self):
+    self.left_pwm.ChangeDutyCycle(75)
+    self.right_pwm.ChangeDutyCycle(75)
+
     self._right_backward()
     self._left_forward()
 
-    self.current_action = Action.right
+    self.state = Action.rotate_right
 
   def stop(self):
     self._left_stop()
     self._right_stop()
-    self.current_action = Action.stop
+    self.speed = 0
+    self.state = Action.stop
 
   def quit(self):
     self.stop()
