@@ -13,6 +13,10 @@ while True:
     bot.backward()
   elif key == 'x':
     bot.stop()
+  elif key == 'd':
+    bot.right()
+  elif key == 'a':
+    bot.left()
   
   elif key == 'q':
     bot.rotate_left()

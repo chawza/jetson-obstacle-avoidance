@@ -1,5 +1,6 @@
 from Jetson import GPIO
 import time
+from cv2 import RETR_CCOMP
 from getch import getch
 
 '''
@@ -39,6 +40,9 @@ class Robot:
     self.mode = 'drive'
     self.speed = 0  # 0...255
     self.speed_step = 25
+    self.turn_dir = 0 # when n < 0 : turn left when n > 0 : turn right
+    self.max_turn = 3
+
     
     # Robot initiation
     self.stop()
@@ -121,18 +125,45 @@ class Robot:
       self.state = Action.forward
 
   def right(self):
+    if self.turn_dir == self.max_turn:
+      return
+    if self.speed == 0:
+      return
     
-    self.left_pwm.ChangeDutyCycle(50)
-    self.right_pwm.ChangeDutyCycle(50)
+    if self.turn_dir < 0:
+      self.turn_dir = 0
 
-    self._left_backward()
-    self._right_forward()
+    self.turn_dir += 1
+    turn_difference = int(self.speed * (self.turn_dir / self.max_turn))
+
+    self.left_pwm.ChangeDutyCycle(self.speed - turn_difference)
+    self.right_pwm.ChangeDutyCycle(self.speed + turn_difference)
+
+    self.state = Action.right
+
+  def left(self):
+    if self.turn_dir == -self.max_turn:
+      return
+    if self.speed == 0:
+      return
+    
+    if self.turn_dir > 0:
+      self.turn_dir = 0
+
+    self.turn_dir += -1
+    turn_difference = int(self.speed * ( (-self.turn_dir) / self.max_turn))
+    
+    self.left_pwm.ChangeDutyCycle(self.speed + turn_difference)
+    self.right_pwm.ChangeDutyCycle(self.speed - turn_difference)
 
     self.state = Action.left
 
+    self._left_forward()
+    self._right_forward()
+
   def rotate_left(self):
-    self.left_pwm.ChangeDutyCycle(75)
-    self.right_pwm.ChangeDutyCycle(75)
+    self.left_pwm.ChangeDutyCycle(100)
+    self.right_pwm.ChangeDutyCycle(100)
 
     self._left_backward()
     self._right_forward()
@@ -140,8 +171,8 @@ class Robot:
     self.state = Action.rotate_left
   
   def rotate_right(self):
-    self.left_pwm.ChangeDutyCycle(75)
-    self.right_pwm.ChangeDutyCycle(75)
+    self.left_pwm.ChangeDutyCycle(100)
+    self.right_pwm.ChangeDutyCycle(100)
 
     self._right_backward()
     self._left_forward()
@@ -152,6 +183,7 @@ class Robot:
     self._left_stop()
     self._right_stop()
     self.speed = 0
+    self.turn_dir = 0
     self.state = Action.stop
 
   def quit(self):
