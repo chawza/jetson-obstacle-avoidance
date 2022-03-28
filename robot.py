@@ -42,7 +42,6 @@ class Robot:
     self.speed_step = 25
     self.turn_dir = 0 # when n < 0 : turn left when n > 0 : turn right
     self.max_turn = 3
-
     
     # Robot initiation
     self.stop()
@@ -90,10 +89,16 @@ class Robot:
     GPIO.output(Pin.inp4, GPIO.LOW)
   
   def forward(self):
+    #if device is turning, forward will go straight
+    if self.turn_dir != 0:
+      self.turn_dir = 0
+      return
+
     self.speed += self.speed_step
     if self.speed > 100:
       self.speed = 100
     set_speed = self.speed if self.speed >= 0 else -self.speed
+
     self.left_pwm.ChangeDutyCycle(set_speed)
     self.right_pwm.ChangeDutyCycle(set_speed)
 
@@ -107,11 +112,17 @@ class Robot:
       self.state = Action.backward
 
   def backward(self):
+    #if device is turning, robot stops
+    if self.turn_dir != 0:
+      self.turn_dir = 0
+      self.stop()
+      return
+
     self.speed -= self.speed_step
     if self.speed < -100:
       self.speed = -100
-    
     set_speed = self.speed if self.speed >= 0 else -self.speed
+
     self.left_pwm.ChangeDutyCycle(set_speed)
     self.right_pwm.ChangeDutyCycle(set_speed)
 
@@ -195,32 +206,35 @@ class Robot:
     print("Robot Deactivated")
 
 def app():
-  print('APP RUNS')
-  robot = Robot()
-  running = True
-  curr_key = ''
-  
-  while running:
-    time.sleep(.001)
+  print('Robot Activated')
+  bot = Robot()
+  while True:
     key = getch()
-
-    if key.lower() != curr_key:
-      curr_key = key.lower()
-      if curr_key == 'w':
-        robot.forward()
-        print(Action.forward)
-      elif curr_key == 's':
-        robot.backward()
-        print(Action.backward)
-      elif curr_key == 'e':
-        robot.stop()
-        print(Action.stop)
-      else:
-        print(f'invalid input: {key}')
-        robot.stop()
     
-    if key == 'q' or key == ' ':
-      running = False
-  
-  print('APP STOPS')
-  GPIO.cleanup()
+    if key == 'w':
+      bot.forward()
+    elif key == 's':
+      bot.backward()
+    elif key == 'x':
+      bot.stop()
+    elif key == 'd':
+      bot.right()
+    elif key == 'a':
+      bot.left()
+    
+    elif key == 'q':
+      bot.rotate_left()
+    elif key == 'e':
+      bot.rotate_right()
+    elif key == 'z':
+      break
+    print('state: {} speed: {}'.format(bot.state, bot.speed))
+
+  bot.quit()
+  print('Robot Deactivated')
+
+if __name__ == '__main__':
+  import sys
+
+  if '--drive' in sys.argv or '-d' in sys.argv:
+    app()
