@@ -19,7 +19,8 @@ def encode_byte_to_img(img_byte):
   return cv2.imdecode(np_img, -1)
 
 def encode_img_binary_to_byte(binary_img):
-  img = np.round(binary_img * 255)
+  img = binary_img * 255
+  img = img.astype(np.dtype('uint8'))
   return decode_img_to_byte(img)
   
 def safe_frames(left_img, right_img, counter, img_dir=default_save_img_dir):
@@ -159,4 +160,10 @@ class CalibrateSession():
       print(error)
   
   def calibrate(self):
+    calibrate_cam()
+
+if __name__ == '__main__':
+  import sys
+  
+  if '--calibrate' in sys.argv:
     calibrate_cam()

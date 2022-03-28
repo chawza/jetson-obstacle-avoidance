@@ -35,5 +35,4 @@ class Broadcast(Process):
       if event[0] == True:
         break
       await asyncio.sleep(2)
-      print('True')
     return
