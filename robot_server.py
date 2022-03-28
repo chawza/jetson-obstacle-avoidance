@@ -83,6 +83,7 @@ async def listen_controller(websocket: WebSocketServerProtocol):
           print(error_message)
     except ConnectionClosedError:
       print('Robot Commmand: Reconnecting')
+      robot.stop()
     except ConnectionClosedOK:
       print('Robot Commmand: Disconnected')
       robot.stop()
@@ -90,9 +91,10 @@ async def listen_controller(websocket: WebSocketServerProtocol):
 async def broadcast_handler(websocket: WebSocketServerProtocol, _):
   try:
     cam_preset = calibration.load_calibrate_map_preset()
-    depth_estimator = DepthEstimator(cam_preset=cam_preset, numDisparities=112, blockSize=27, minDisparity=10)
+    depth_estimator = DepthEstimator(cam_preset=cam_preset)
     sbm = depth_estimator.stereo
-  except Exception:
+    depth_estimator.load_preset('./stereoBM_presets/1_short_preset.json')
+  except Exception as err:
     print('unable to load cam preset')
 
   path = websocket.path
@@ -111,28 +113,31 @@ async def broadcast_handler(websocket: WebSocketServerProtocol, _):
         
         # img_to_send = np.hstack((left, right))
         # img_to_send = np.hstack((left_img, right_img))
-        # img_to_send2 = np.hstack((left, right))
+        # img_to_send2 = np.hstack((left_img, right_img))
         # img_to_send = np.vstack((img_to_send, img_to_send2))
 
         # img_to_send = cv2.cvtColor(img_to_send, cv2.COLOR_BGR2GRAY)
+        # img_to_send = cv2.cvtColor(img_to_send, cv2.COLOR_BGR2GRAY)
         # img_to_send = cv2.cvtColor(left_img, cv2.COLOR_BGR2GRAY)
-        img_to_send = depth_estimator.get_disparity(left_img, right_img)
+        # img_to_send = depth_estimator.get_disparity(left_img, right_img)
+        # print('max: {} min: {}'.format(np.max(img_to_send), np.min(img_to_send)))
         # img_to_send = depth_estimator.normalize_disparity(img_to_send)
+        img_to_send = depth_estimator.get_depth(left_img, right_img)
+        img_to_send = depth_estimator.normalize_depth(img_to_send, reverse=True)
         # img_to_send = (img_to_send - sbm.getMinDisparity()) / sbm.getNumDisparities()
-        # img_to_send = depth_estimator.get_depth(left_img, right_img)
         # img_to_send = (img_to_send - np.min(img_to_send)) / (np.max(img_to_send) - np.min(img_to_send))
         # img_to_send = cv2.normalize(img_to_send, None, 0, 1, cv2.NORM_MINMAX, dtype=cv2.CV_64F)
         img_to_send = cv2.resize(img_to_send, dsize=(
           round(img_to_send.shape[1]/2),
           round(img_to_send.shape[0]/2),
         ))
-        if img_to_send.dtype == np.float64:
+        if img_to_send.dtype == np.float32:
           byte_img = calibration.encode_img_binary_to_byte(img_to_send)
         else:
           byte_img = calibration.decode_img_to_byte(img_to_send)
         await websocket.send(byte_img)
         end = time.perf_counter()
-        # print('time: {:.4f}'.format(round(end-start, 4)))
+        print('time: {:.4f}'.format(round(end-start, 4)))
         await asyncio.sleep(0.1)
     except ConnectionClosedError:
       print('Broadcast: Reconnecting')
@@ -197,5 +202,4 @@ if __name__ == '__main__':
 
   broadcast_server.join()
   camera.clean_up()
-  robot.quit()
   print('main ends')
