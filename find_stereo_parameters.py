@@ -26,7 +26,7 @@ def nothing(x):
 cv2.namedWindow('disp',cv2.WINDOW_NORMAL)
 cv2.resizeWindow('disp',600,600)
 
-estimator = DepthEstimator(cam_preset=cam_preset)
+estimator = DepthEstimator()
 stereo = estimator.stereo
 
 cv2.createTrackbar('numDisparities','disp',1,17,nothing)
@@ -37,14 +37,19 @@ cv2.createTrackbar('preFilterSize','disp',2,25,nothing)
 cv2.createTrackbar('preFilterCap','disp',5,62,nothing)
 cv2.createTrackbar('textureThreshold','disp',10,100,nothing)
 cv2.createTrackbar('uniquenessRatio','disp',15,100,nothing)
-cv2.createTrackbar('speckleRange','disp',0,100,nothing)
-cv2.createTrackbar('speckleWindowSize','disp',3,25,nothing)
+cv2.createTrackbar('speckleRange','disp',1,100,nothing)
+cv2.createTrackbar('speckleWindowSize','disp',6,25,nothing)
 cv2.createTrackbar('disp12MaxDiff','disp',5,25,nothing)
 
 print('Quit\t\t: Q')
 print('Save Preset\t: S')
 
 for imgL, imgR in cam.read():
+	imgR = cv2.flip(imgR, -1)
+	cal_left, cal_right = calibration.calibrate_imgs(imgL, imgR, cam_preset)
+	left_gray = cv2.cvtColor(cal_left, cv2.COLOR_BGR2GRAY)
+	right_gray = cv2.cvtColor(cal_right, cv2.COLOR_BGR2GRAY)
+
 	numDisparities = cv2.getTrackbarPos('numDisparities','disp')*16 or 16
 	minDisparity = cv2.getTrackbarPos('minDisparity','disp')
 	blockSize = cv2.getTrackbarPos('blockSize','disp')
@@ -74,20 +79,17 @@ for imgL, imgR in cam.read():
 	stereo.setSpeckleRange(speckleRange)
 	stereo.setSpeckleWindowSize(speckleWindowSize)
 	stereo.setDisp12MaxDiff(disp12MaxDiff)
-
-	disparity = estimator.get_disparity(imgL, imgR)
-	disparity = cv2.blur(disparity, (3,3))
-	disparity = estimator.normalize_disparity(disparity)
-	# NOTE: Code returns a 16bit signed single channel image,
-	# CV_16S containing a disparity map scaled by 16. Hence it 
-	# is essential to convert it to CV_32F and scale it down 16 times.
+	
+	disparity = estimator.get_disparity(left_gray, right_gray)
 	
 	cv2.putText(disparity, f'numDisp: {numDisparities}', org=(50, 50), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale= 1, color=(255,0,0), thickness= 1, lineType= cv2.LINE_AA)
 	cv2.putText(disparity, f'minDisp: {minDisparity}', (50, 75), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale= 1, color=(255,0,0), thickness= 1, lineType= cv2.LINE_AA)
 	cv2.putText(disparity, f'blockSize: {blockSize}', (50, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale= 1, color=(255,0,0), thickness= 1, lineType= cv2.LINE_AA)
 	
-	cv2.imshow('Disparity', disparity)
-	cv2.imshow('Left Camera', imgL)
+	cmap_disparity = estimator.disparity_to_colormap(disparity)
+
+	cv2.imshow('Disparity', cmap_disparity)
+	cv2.imshow('Left Camera', cal_left)
 
 	# Close window using esc key
 	key = cv2.waitKey(1)

@@ -50,7 +50,7 @@ def get_img_path_list():
 
 def calculate_stereo_map():
   # source: https://github.com/niconielsen32/ComputerVision/blob/master/stereoVisionCalibration/stereovision_calibration.py
-  chessboard_square_length_mm = 25
+  chessboard_square_length_mm = 26
   chessboard_corner_size = (9, 6)
   frame_shape = (640, 480)
   criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)

@@ -6,10 +6,9 @@ import numpy as np
 import calibration
 
 class DepthEstimator():
-  def __init__(self, cam_preset, cam_focal = .4, cam_baseline = 71, max_depth=3000, min_depth=0, frame_size = (640, 480)):
+  def __init__(self, cam_focal = .4, cam_baseline = 38, max_depth=3000, min_depth=0, frame_size = (640, 480)):
     # class variables
     self.stereo = cv2.StereoBM_create()
-    self.cam_preset =  cam_preset
     self.stereo_preset_filename = 'stereo_preset'
 
     # depth calculation
@@ -22,19 +21,10 @@ class DepthEstimator():
     self.baseline = cam_baseline
     self.M = self.baseline * self.focal_length_in_px
 
-  def preprocess_img(self, left, right):
-    cal_left, cal_right = calibration.calibrate_imgs(left, right, preset=self.cam_preset)
-
-    if len(cal_left.shape) == 3:
-      cal_left = cv2.cvtColor(cal_left, cv2.COLOR_BGR2GRAY)
-      cal_right = cv2.cvtColor(cal_right, cv2.COLOR_BGR2GRAY)
-
-    return cal_left, cal_right
-
-
   # https://learnopencv.com/depth-perception-using-stereo-camera-python-c/
   def get_disparity(self, left_img, right_img):
-    left_img, right_img = self.preprocess_img(left_img, right_img)
+    if len(left_img.shape) > 2:
+      raise ValueError('Input images should be one dimension (grayscale)')
     disparity = self._block_maching(left_img, right_img)
 
     # filter
@@ -71,6 +61,11 @@ class DepthEstimator():
     norm_disp = (disparity - self.stereo.getMinDisparity()) / self.stereo.getNumDisparities()
     return norm_disp
   
+  def disparity_to_colormap(self, disparity):
+    norm_disparity = self.normalize_disparity(disparity)
+    int_disp = (norm_disparity * 255).astype(np.dtype('uint8'))
+    return cv2.applyColorMap(int_disp, cv2.COLORMAP_JET)
+
   def normalize_depth(self, depth, reverse = False):
     norm_depth = (depth - self.min_depth) / (self.max_depth - self.min_depth)
     if reverse:
@@ -98,7 +93,7 @@ class DepthEstimator():
 
     preset_idx = self.reserve_stereo_preset_index() + 1
 
-    file_path = os.path.join(param_dir, f'{self.stereo_preset_filename}_{preset_idx}.json')
+    file_path = os.path.join(param_dir, f'{preset_idx}_{self.stereo_preset_filename}.json')
     with open(file_path, 'w') as file:
       json.dump(params, file)
 
@@ -135,6 +130,3 @@ class DepthEstimator():
     if current:
       return len(files)
     return len(files) + 1
-
-
-      
