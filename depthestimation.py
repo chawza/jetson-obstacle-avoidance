@@ -61,6 +61,10 @@ class DepthEstimator():
     norm_disp = (disparity - self.stereo.getMinDisparity()) / self.stereo.getNumDisparities()
     return norm_disp
   
+  def disparity_to_gray(self, disparity):
+    norm_disparity = self.normalize_disparity(disparity)
+    return (norm_disparity * 255).astype(np.dtype('uint8'))
+  
   def disparity_to_colormap(self, disparity):
     norm_disparity = self.normalize_disparity(disparity)
     int_disp = (norm_disparity * 255).astype(np.dtype('uint8'))

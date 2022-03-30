@@ -205,6 +205,13 @@ class Robot:
       self.is_cleaned_up = True
     print("Robot Deactivated")
 
+  def print_debug(self):
+    if self.turn_dir == 0:
+      print('state: {} speed: {}'.format(self.state, self.speed))
+      return
+    
+    print('state: {} speed: {} turn dir: {}'.format(self.state, self.speed, self.turn_dir))
+    
 def app():
   print('Robot Activated')
   bot = Robot()
@@ -228,7 +235,7 @@ def app():
       bot.rotate_right()
     elif key == 'z':
       break
-    print('state: {} speed: {}'.format(bot.state, bot.speed))
+    bot.print_debug()
 
   bot.quit()
   print('Robot Deactivated')

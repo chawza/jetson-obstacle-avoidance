@@ -21,6 +21,8 @@ class StereoCams():
         _, left_img = self.cam_left.read()
         _, right_img = self.cam_right.read()
 
+        right_img = cv2.flip(right_img, -1)
+
         yield left_img, right_img
         time.sleep(time_split)
   
