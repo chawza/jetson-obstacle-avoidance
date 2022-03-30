@@ -16,6 +16,8 @@ class StereoCams():
     self.cam_right.set(cv2.CAP_PROP_FRAME_HEIGHT, capture_size[1])
 
   def read(self, time_split=.01):
+    # TODO: sync capture image between two camera
+    # https://stackoverflow.com/questions/21671139/how-to-synchronize-two-usb-cameras-to-use-them-as-stereo-camera
     if self.cam_left.isOpened() and self.cam_right.isOpened():
       while True:
         _, left_img = self.cam_left.read()
