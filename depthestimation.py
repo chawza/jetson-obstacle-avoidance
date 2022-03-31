@@ -118,6 +118,7 @@ class DepthEstimator():
       file_path = preset_list[-1]      
 
     with open(file_path, 'r') as file:
+      print(f'reading preset in {file_path}')
       loaded_preset = json.load(file)
       if len(loaded_preset) < 1:
         raise RuntimeError('Cannot load stereo preset')

@@ -20,7 +20,7 @@ from depthestimation import DepthEstimator
 from capture_cam import StereoCams
 import calibration
 
-host=os.getenv('APP_HOST')
+host = os.getenv('APP_HOST')
 app_port = os.getenv('APP_PORT')
 broadcast_port = os.getenv('BROADCAST_PORT')
 app_stop = None
@@ -36,7 +36,6 @@ def read_cam_task():
   for left, right in camera.read(time_split=.01):
     if app_stop.is_set():
       break
-
     shared_left[:] = left.copy()
     shared_right[:] = right.copy()
   camera.clean_up()
@@ -55,23 +54,23 @@ async def listen_controller(websocket: WebSocketServerProtocol):
       async for data in websocket:
         action = data
         if action == RobotAction.forward:
-          print('ROBOT: FORWARD')
           robot.forward()
-          await websocket.send('success')
         elif action == RobotAction.backward:
-          print('ROBOT: BACKWARD')
           robot.backward()
         elif action == RobotAction.left:
-          print('ROBOT: LEFT')
           robot.left()
         elif action == RobotAction.right:
-          print('ROBOT: RIGHT')
           robot.right()
         elif action == RobotAction.stop:
-          print('ROBOT: STOP')
           robot.stop()
+        elif action == RobotAction.rotate_left:
+          robot.rotate_left()
+        elif action == RobotAction.rotate_right:
+          robot.rotate_right()
+
         elif action == 'SAVE_FRAME':
           calibrate_session.capture_frame(shared_left, shared_right)
+
         elif action == 'QUIT':
           robot.quit()
           app_stop.set()
@@ -80,6 +79,8 @@ async def listen_controller(websocket: WebSocketServerProtocol):
           print('WHAT', action)
           error_message = f'Unrecognized Action "{action}"'
           print(error_message)
+
+        robot.print_debug()
     except ConnectionClosedError:
       print('Robot Commmand: Reconnecting')
       robot.stop()
