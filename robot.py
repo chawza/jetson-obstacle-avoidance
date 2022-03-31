@@ -1,7 +1,10 @@
-from Jetson import GPIO
+try:
+  from Jetson import GPIO
+  from getch import getch
+except ImportError:
+  pass
 import time
 from cv2 import RETR_CCOMP
-from getch import getch
 
 '''
 W : Forward / Speed up

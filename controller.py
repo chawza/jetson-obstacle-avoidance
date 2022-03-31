@@ -13,13 +13,7 @@ import numpy as np
 from websockets.client import connect
 from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
 import calibration
-
-ACTION_DICT = {
-  'w': 'FORWARD',
-  's': 'BACKWARD',
-  'a': 'LEFT',
-  'd': 'RIGHT'
-}
+from robot import Action
 
 host = os.getenv('APP_HOST')
 app_port = os.getenv('APP_PORT')
@@ -54,49 +48,44 @@ async def listen_server():
 
   print('Listen: Stop')
 
+ACTION_DICT = {
+  'w': Action.forward,
+  's': Action.backward,
+  'a': Action.left,
+  'd': Action.right,
+  'q': Action.rotate_left,
+  'e': Action.rotate_right,
+  'x': Action.stop
+}
+
 async def app():
   global stop_client
 
   while not stop_client.is_set():
     try:
       print('APP: Making Connection {} {}'.format(host, 8765))
-      async with connect('ws://{}:{}/command'.format(host, app_port), ping_interval=1, ping_timeout=1) as ws_client:
+      async with connect('ws://{}:{}/command'.format(host, app_port), ping_interval=1, ping_timeout=1, max_queue=1) as ws_client:
         print('APP: Server connected')
-        current_key = ''
 
         while True:
           key = getch()
           key = key.decode('utf-8')
+          print('key pressed: {}'.format(key))
           
-          if key == 'f':
+          if key in ACTION_DICT:
+            await ws_client.send(ACTION_DICT[key])
+          elif key == 'f':
             await ws_client.send('SAVE_FRAME')
-            continue
-          elif key == 'c':
-            await ws_client.send('TOGGLE_CAM_CALIBRATE')
-            continue
-
-          if current_key != key:
-            current_key = key
-            print('key pressed: {}'.format(current_key))
-            
-            if key == 'q' or key == ' ':
-              await ws_client.send('QUIT')
+          elif key == 'z' or key == ' ':
+            await ws_client.send('QUIT')
+            break          
               break
-
-            elif key == 'r' or key == ' ':
-              await ws_client.send('RESET')
-
-            elif key == 'e':
-              await ws_client.send('STOP')
-
-            elif key == 'w' or key == 's' or key == 'a' or key == 'd':
-              await ws_client.send(ACTION_DICT[key])
-            
-            await asyncio.sleep(.001)
+            break          
+          await asyncio.sleep(.01)
         
         await ws_client.close()
         stop_client.set()
-        print('APP: Server Disconnected')
+        print('APP: Client Disconnected')
 
     except ConnectionClosedError:
       await ws_client.close()

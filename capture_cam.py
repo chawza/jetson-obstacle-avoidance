@@ -1,6 +1,5 @@
 import cv2
 import time
-import calibration
 
 class StereoCams():
   def __init__(self, left_idx = 0, right_idx = 1, capture_size=(640, 480)):
