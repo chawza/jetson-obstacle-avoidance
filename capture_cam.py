@@ -1,6 +1,5 @@
 import cv2
 import time
-import calibration
 
 class StereoCams():
   def __init__(self, left_idx = 0, right_idx = 1, capture_size=(640, 480)):
@@ -23,9 +22,11 @@ class StereoCams():
     self.cam_right.set(cv2.CAP_PROP_FRAME_WIDTH, capture_size[0])
     self.cam_right.set(cv2.CAP_PROP_FRAME_HEIGHT, capture_size[1])
 
+    self.state = True
+
   def read(self, time_split=.01):
     if self.cam_left.isOpened() and self.cam_right.isOpened():
-      while True:
+      while self.state is True:
         _, left_img = self.cam_left.read()
         _, right_img = self.cam_right.read()
 
@@ -34,6 +35,10 @@ class StereoCams():
         yield left_img, right_img
         time.sleep(time_split)
   
-  def clean_up(self):
     self.cam_left.release()
     self.cam_right.release()
+    print('VideoCapture released')
+
+  def clean_up(self):
+    self.state = False
+    print('cams stop')
