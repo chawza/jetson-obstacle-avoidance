@@ -14,7 +14,6 @@ for left, right in camera.read():
   right = cv2.flip(right, -1)
   if is_calibrate:
     left, right = calibration.calibrate_imgs(left, right, cam_preset)
-    
 
   img = np.hstack((left, right))
 

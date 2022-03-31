@@ -100,7 +100,6 @@ class DepthEstimator():
     if param_dir == None:
       param_dir = os.path.join(os.path.dirname(__file__), 'stereo presets')
 
-    sbm = self.stereo
     params = self.get_all_sbm_properties()
     preset_idx = self.reserve_stereo_preset_index() + 1
 

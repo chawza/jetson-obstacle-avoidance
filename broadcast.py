@@ -30,6 +30,9 @@ class Broadcast(Process):
     asyncio.run(self.start_server())
   
   async def stop_event(self,):
+    """
+    an event loop that watch a value in a memory. it waits the value to be True
+    """
     event = sa.attach(self.stop_event_name)
     while True:
       if event[0] == True:
