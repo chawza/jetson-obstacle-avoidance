@@ -48,7 +48,7 @@ def get_img_path_list():
 
   return left_img_filepath, right_img_filepath
 
-def calculate_stereo_map():
+def check_board_calibration():
   # source: https://github.com/niconielsen32/ComputerVision/blob/master/stereoVisionCalibration/stereovision_calibration.py
   chessboard_square_length_mm = 26
   chessboard_corner_size = (9, 6)
@@ -111,8 +111,9 @@ def calculate_stereo_map():
 
   return stereoMapL, stereoMapR
 
-def save_calibration_map_preset(stereoMapL, stereoMapR):
-  preset_dir = os.path.join(os.getcwd(), 'calibration_preset')
+def save_calibration_map_preset(stereoMapL, stereoMapR, preset_dir=None):
+  if preset_dir == None:
+    preset_dir = os.path.join(os.getcwd(), 'calibration_preset')
 
   if not os.path.exists(preset_dir):
     os.mkdir(preset_dir)
@@ -122,16 +123,18 @@ def save_calibration_map_preset(stereoMapL, stereoMapR):
   np.save(os.path.join(preset_dir, 'stereoMapR_x.npy'), stereoMapR[0])
   np.save(os.path.join(preset_dir, 'stereoMapR_y.npy'), stereoMapR[1])
 
+  print(f'saving camera preset in {preset_dir}')
+
 def load_calibrate_map_preset(preset_dir = None):
   if preset_dir == None:
     preset_dir = os.path.join(os.getcwd(), 'calibration_preset')
 
-  print('loading stereo camera preset from {}'.format(preset_dir))
   stereoMapL_x = np.load(os.path.join(preset_dir, 'stereoMapL_x.npy'))
   stereoMapL_y = np.load(os.path.join(preset_dir, 'stereoMapL_y.npy'))
   stereoMapR_x = np.load(os.path.join(preset_dir, 'stereoMapR_x.npy'))
   stereoMapR_y = np.load(os.path.join(preset_dir, 'stereoMapR_y.npy'))
 
+  print('loading stereo camera preset from {}'.format(preset_dir))
   return (stereoMapL_x, stereoMapL_y), (stereoMapR_x, stereoMapR_y)
 
 def calibrate_imgs(left, right, preset):
@@ -142,7 +145,7 @@ def calibrate_imgs(left, right, preset):
   
 def calibrate_cam():
   print('Camera Calibrating')
-  stereoMapL, stereoMapR = calculate_stereo_map()
+  stereoMapL, stereoMapR = check_board_calibration()
   save_calibration_map_preset(stereoMapL, stereoMapR)
   print('Done camera calibration')
 
@@ -165,5 +168,5 @@ class CalibrateSession():
 if __name__ == '__main__':
   import sys
   
-  if '--calibrate' in sys.argv:
+  if '--calibrate' in sys.argv or '-c' in sys.argv:
     calibrate_cam()
