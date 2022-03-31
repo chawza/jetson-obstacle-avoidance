@@ -20,9 +20,13 @@ from depthestimation import DepthEstimator
 from capture_cam import StereoCams
 import calibration
 
-host = os.getenv('APP_HOST')
-app_port = os.getenv('APP_PORT')
-broadcast_port = os.getenv('BROADCAST_PORT')
+HOST = os.getenv('APP_HOST')
+APP_PORT = os.getenv('APP_PORT')
+BROADCAST_PORT = os.getenv('BROADCAST_PORT')
+SBM_PRESET_PATH = os.getenv('SBM_PRESET_FILE')
+
+calibration_path_dir = './calibration_preset'
+
 app_stop = None
 cam_stop = None
 
@@ -90,10 +94,10 @@ async def listen_controller(websocket: WebSocketServerProtocol):
 
 async def broadcast_handler(websocket: WebSocketServerProtocol, _):
   try:
-    cam_preset = calibration.load_calibrate_map_preset('./calibration_preset')
+    cam_preset = calibration.load_calibrate_map_preset(preset_dir=calibration_path_dir)
     depth_estimator = DepthEstimator()
-    sbm = depth_estimator.stereo
-    depth_estimator.load_preset('./stereo presets/6_stereo_preset.json')
+    depth_estimator.load_preset(SBM_PRESET_PATH)
+    print(depth_estimator.get_all_sbm_properties())
   except Exception as err:
     print('unable to load cam preset')
     print(err)
@@ -106,35 +110,26 @@ async def broadcast_handler(websocket: WebSocketServerProtocol, _):
       print('Broadcast: Connected')
       print('borad cast cam in port {}'.format(websocket.port))
       while True:
-        start = time.perf_counter()
-        cal_left, cal_right = calibration.calibrate_imgs(left_img, right_img, cam_preset)
+        ### Calibrate cams ###
+        cal_left, cal_right = calibration.calibrate_imgs(left_img, right_img, preset=cam_preset)
         left_gray = cv2.cvtColor(cal_left, cv2.COLOR_BGR2GRAY)
         right_gray = cv2.cvtColor(cal_right, cv2.COLOR_BGR2GRAY)
+        # cal_img_to_send = np.hstack((left_gray, right_gray))
+        # img_to_send = cal_img_to_send
         
-        # img_to_send = np.hstack((cal_left, cal_right))
-        # img_to_send = np.hstack((left_img, right_img))
-        # img_to_send2 = np.hstack((left_img, right_img))
-        # img_to_send = np.vstack((img_to_send, img_to_send2))
+        ### Test stereo correspondence ###
+        # img_to_send = depth_estimator.get_disparity(left_gray, right_gray)
+        # img_to_send = depth_estimator.disparity_to_colormap(img_to_send)
 
-        # img_to_send = cv2.cvtColor(img_to_send, cv2.COLOR_BGR2GRAY)
-        # img_to_send = cv2.cvtColor(left_img, cv2.COLOR_BGR2GRAY)
-        img_to_send = depth_estimator.get_disparity(left_gray, right_gray)
-        img_to_send = depth_estimator.disparity_to_gray(img_to_send)
-        # img_to_send = depth_estimator.get_depth(left_img, right_img)
-        # img_to_send = depth_estimator.normalize_depth(img_to_send, reverse=True)
-        # img_to_send = (img_to_send - sbm.getMinDisparity()) / sbm.getNumDisparities()
-        # img_to_send = (img_to_send - np.min(img_to_send)) / (np.max(img_to_send) - np.min(img_to_send))
-        # img_to_send = cv2.normalize(img_to_send, None, 0, 1, cv2.NORM_MINMAX, dtype=cv2.CV_64F)
+        ### Test depth estimation ###
+        img_to_send = depth_estimator.get_depth(left_gray, right_gray)
+        img_to_send = depth_estimator.depth_to_colormap(img_to_send)
+
         img_to_send = cv2.resize(img_to_send, dsize=(
           round(img_to_send.shape[1]/2),
           round(img_to_send.shape[0]/2),
         ))
-        end = time.perf_counter()
-        print('time: {:.4f}'.format(end-start))
-        if img_to_send.dtype == np.float32:
-          byte_img = calibration.encode_img_binary_to_byte(img_to_send)
-        else:
-          byte_img = calibration.decode_img_to_byte(img_to_send)
+        byte_img = calibration.decode_img_to_byte(img_to_send)
         await websocket.send(byte_img)
         await asyncio.sleep(0.1)
     except ConnectionClosedError:
@@ -153,8 +148,8 @@ async def app_server():
   curr_lopp = asyncio.get_event_loop()
   app_stop = asyncio.Event(loop=curr_lopp)
 
-  async with serve(listen_controller, host, app_port):
-    print('Robot: Server activated in {} {}'.format(host, app_port))
+  async with serve(listen_controller, HOST, APP_PORT):
+    print('Robot: Server activated in {} {}'.format(HOST, APP_PORT))
     await app_stop.wait()
     robot_event[0] = True
 
@@ -189,9 +184,9 @@ if __name__ == '__main__':
   robot_event = sa.create('robot_event', 2, dtype=bool)
 
   robot = Robot()
-  camera = StereoCams()
+  camera = StereoCams(1,0)
   
-  broadcast_server = Broadcast(broadcast_handler, host=host, port=broadcast_port, stop_event_name='robot_event')
+  broadcast_server = Broadcast(broadcast_handler, host=HOST, port=BROADCAST_PORT, stop_event_name='robot_event')
   broadcast_server.start()
 
   loop = asyncio.get_event_loop()

@@ -76,6 +76,11 @@ class DepthEstimator():
       norm_depth = 1 - norm_depth
     return norm_depth
 
+  def depth_to_colormap(self, depth):
+    norm_depth = self.normalize_depth(depth, reverse=True)
+    int_depth = (norm_depth * 255).astype(np.dtype('uint8'))
+    return cv2.applyColorMap(int_depth, cv2.COLORMAP_JET)
+
   def get_all_sbm_properties(self):
     sbm = self.stereo
     return {
