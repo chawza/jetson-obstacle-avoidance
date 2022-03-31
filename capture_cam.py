@@ -8,10 +8,10 @@ class StereoCams():
     self.cam_left = cv2.VideoCapture(self.left_cam_index)
     self.cam_right = cv2.VideoCapture(self.right_cam_index)
 
-    # Sync the frame grabbing by adjusting the buffer size based on 
-    # https://stackoverflow.com/questions/30032063/opencv-videocapture-lag-due-to-the-capture-buffer
-    # NOTE: not fully sync but much better than before
-    # other method: https://stackoverflow.com/questions/21671139/how-to-synchronize-two-usb-cameras-to-use-them-as-stereo-camera
+    """ Sync the frame grabbing by adjusting the buffer size based on 
+    https://stackoverflow.com/questions/30032063/opencv-videocapture-lag-due-to-the-capture-buffer
+    NOTE: not fully sync, but much better than before. other method to try
+    https://stackoverflow.com/questions/21671139/how-to-synchronize-two-usb-cameras-to-use-them-as-stereo-camera """
     self.cam_left.set(cv2.CAP_PROP_BUFFERSIZE, 2)
     self.cam_right.set(cv2.CAP_PROP_BUFFERSIZE, 8)
     # Other config: left = 1  right = 2
@@ -32,6 +32,8 @@ class StereoCams():
         _, left_img = self.cam_left.read()
         _, right_img = self.cam_right.read()
 
+        # right camera is positioned upside-down in order to reduce the stereo basline length
+        # fliping Vertically and Horizontally will fix the upside-down image
         right_img = cv2.flip(right_img, -1)
 
         yield left_img, right_img

@@ -76,6 +76,11 @@ class DepthEstimator():
       norm_depth = 1 - norm_depth
     return norm_depth
 
+  def depth_to_colormap(self, depth):
+    norm_depth = self.normalize_depth(depth, reverse=True)
+    int_depth = (norm_depth * 255).astype(np.dtype('uint8'))
+    return cv2.applyColorMap(int_depth, cv2.COLORMAP_JET)
+
   def get_all_sbm_properties(self):
     sbm = self.stereo
     return {
@@ -95,7 +100,6 @@ class DepthEstimator():
     if param_dir == None:
       param_dir = os.path.join(os.path.dirname(__file__), 'stereo presets')
 
-    sbm = self.stereo
     params = self.get_all_sbm_properties()
     preset_idx = self.reserve_stereo_preset_index() + 1
 
