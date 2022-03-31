@@ -61,6 +61,10 @@ class DepthEstimator():
     norm_disp = (disparity - self.stereo.getMinDisparity()) / self.stereo.getNumDisparities()
     return norm_disp
   
+  def disparity_to_gray(self, disparity):
+    norm_disparity = self.normalize_disparity(disparity)
+    return (norm_disparity * 255).astype(np.dtype('uint8'))
+  
   def disparity_to_colormap(self, disparity):
     norm_disparity = self.normalize_disparity(disparity)
     int_disp = (norm_disparity * 255).astype(np.dtype('uint8'))
@@ -72,12 +76,9 @@ class DepthEstimator():
       norm_depth = 1 - norm_depth
     return norm_depth
 
-  def save_current_preset(self, param_dir = None):
-    if param_dir == None:
-      param_dir = os.path.join(os.path.dirname(__file__), 'stereo presets')
-
+  def get_all_sbm_properties(self):
     sbm = self.stereo
-    params = {
+    return {
       'NumDisparities':  sbm.getNumDisparities(),
       'BlockSize': sbm.getBlockSize(), 
       'MinDisparity': sbm.getMinDisparity(),
@@ -90,7 +91,12 @@ class DepthEstimator():
       'SpeckleWindowSize': sbm.getSpeckleWindowSize(),
       'Disp12MaxDiff': sbm.getDisp12MaxDiff()
     }
+  def save_current_preset(self, param_dir = None):
+    if param_dir == None:
+      param_dir = os.path.join(os.path.dirname(__file__), 'stereo presets')
 
+    sbm = self.stereo
+    params = self.get_all_sbm_properties()
     preset_idx = self.reserve_stereo_preset_index() + 1
 
     file_path = os.path.join(param_dir, f'{preset_idx}_{self.stereo_preset_filename}.json')
@@ -112,6 +118,7 @@ class DepthEstimator():
       file_path = preset_list[-1]      
 
     with open(file_path, 'r') as file:
+      print(f'reading preset in {file_path}')
       loaded_preset = json.load(file)
       if len(loaded_preset) < 1:
         raise RuntimeError('Cannot load stereo preset')
