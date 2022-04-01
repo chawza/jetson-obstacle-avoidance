@@ -153,6 +153,9 @@ class CalibrateSession():
   def __init__(self, initial_img_indx = None, save_img_dir=default_save_img_dir):
     self.img_index = initial_img_indx or initiate_img_counter()
     self.img_dir = save_img_dir
+    
+    self.depth_mapping_list = []
+    self.defult_depth_map_file_name = 'depth_map'
 
   def capture_frame(self, left, right):
     try:
@@ -164,6 +167,16 @@ class CalibrateSession():
   
   def calibrate(self):
     calibrate_cam()
+
+  def add_depth_map(self, disparity, depth):
+    self.depth_mapping_list.append([disparity, depth])
+
+  def save_depth_map(self, file_name=None):
+    np.save(file_name or self.defult_depth_map_file_name, self.depth_mapping_list)
+
+  @staticmethod
+  def load_depth_map(file_name=None):
+    return np.load(file_name or 'depth_map.npy')
 
 if __name__ == '__main__':
   import sys
