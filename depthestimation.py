@@ -3,6 +3,9 @@ import json
 import cv2
 import numpy as np
 
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression
+from sklearn.pipeline import Pipeline
 import calibration
 
 class DepthEstimator():
@@ -10,6 +13,10 @@ class DepthEstimator():
     # class variables
     self.stereo = cv2.StereoBM_create()
     self.stereo_preset_filename = 'stereo_preset'
+    self.depth_prediction_model = Pipeline([
+      ('poly', PolynomialFeatures(degree=3, include_bias=False, interaction_only=True)),
+      ('lienar', LinearRegression(fit_intercept=False))
+    ])
 
     # depth calculation
     self.max_depth = max_depth
@@ -96,6 +103,8 @@ class DepthEstimator():
       'SpeckleWindowSize': sbm.getSpeckleWindowSize(),
       'Disp12MaxDiff': sbm.getDisp12MaxDiff()
     }
+
+
   def save_current_preset(self, param_dir = None):
     if param_dir == None:
       param_dir = os.path.join(os.path.dirname(__file__), 'stereo presets')
@@ -110,16 +119,17 @@ class DepthEstimator():
 
   def load_preset(self, file_path=None):
     sbm = self.stereo
+    default_stereo_preset_dir = 'stereo presets'
 
     if file_path is None:
       project_dir = os.path.dirname(__file__)
-      preset_dir = os.path.join(project_dir, 'stereo presets')
+      preset_dir = os.path.join(project_dir, default_stereo_preset_dir)
       preset_list = os.listdir(preset_dir)
       preset_list = [file_name for file_name in preset_list if file_name.endswith('.json')]
       if len(preset_list) == 0:
         raise FileNotFoundError('preset not found in {}'.format(preset_dir))
       preset_list = sorted(preset_list)
-      file_path = preset_list[-1]      
+      file_path = os.path.join(default_stereo_preset_dir, preset_list[-1])
 
     with open(file_path, 'r') as file:
       print(f'reading preset in {file_path}')
@@ -134,6 +144,23 @@ class DepthEstimator():
       except Exception as err:
         print('Unable to set {} to {}'.format(value, key))
         raise err
+
+  def train_depth_mapping(self, mapping_file = None):
+    depth_map = calibration.CalibrateSession.load_depth_map(mapping_file)
+    # make it sparse
+    disparities = [[value[0]] for value in depth_map]
+    depth_in_mm = [[value[1]] for value in depth_map]
+
+    disparities = np.float32(disparities)
+    depth_in_mm = np.float32(depth_in_mm)
+
+    print(disparities, depth_in_mm)
+
+    self.depth_prediction_model.fit(disparities, depth_in_mm)    
+    
+  def predict_depth(self, disparity):
+    result = self.depth_prediction_model.predict([[disparity]])
+    return result[0][0]
 
   def reserve_stereo_preset_index(current = False):
     stereo_preset_dir = os.path.join(os.path.dirname(__file__), 'stereo presets')
