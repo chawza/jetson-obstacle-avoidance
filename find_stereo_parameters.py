@@ -4,6 +4,7 @@ import cv2
 import calibration
 from depthestimation import DepthEstimator
 from capture_cam import StereoCams
+import presetloader
 
 CamL_id = 0 # Camera ID for left camera
 CamR_id = 2 # Camera ID for right camera
@@ -18,7 +19,7 @@ for value in np.arange(3, 100):
 # Reading the mapping values for stereo image rectification
 # preset_path = os.path.join(os.getcwd(), 'notebooks', 'samples', 'stereo_preset_01')
 preset_path = './calibration_preset'
-cam_preset = calibration.load_calibrate_map_preset(preset_dir=preset_path)
+cam_preset = presetloader.load_calibrate_map_preset()
 
 def nothing(x):
     pass
@@ -111,4 +112,5 @@ for imgL, imgR in cam.read():
 		break
 	
 	if key == ord('s'):
+		print('saving preset')
 		estimator.save_current_preset()

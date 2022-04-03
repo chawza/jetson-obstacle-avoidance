@@ -2,11 +2,12 @@ import cv2
 import numpy as np
 import calibration
 from capture_cam import StereoCams
+import presetloader
 
 is_calibrate = True
 calibration.setup_img_save_directory()
 try:
-  cam_preset = calibration.load_calibrate_map_preset()
+  cam_preset = presetloader.load_calibrate_map_preset()
 except FileNotFoundError:
   is_calibrate = False
 camera = StereoCams(left_idx=0, right_idx=2)
@@ -26,9 +27,12 @@ def stereo_calibration_session():
     if key == ord('q'):
       break
     if key == ord(' '):
-      calibration.safe_frames(left, right, counter)
-      print('saved : {}'.format(counter))
-      counter += 1
+      try:
+        calibration.safe_frames(left, right, counter)
+        print('saved : {}'.format(counter))
+        counter += 1
+      except RuntimeError as err:
+        print(err)
     if key == ord('c'):
       is_calibrate = not is_calibrate
       print(f'Calibrate: {is_calibrate}')
@@ -41,7 +45,7 @@ def depth_calibration_session():
   window_name = 'disparity'
   cv2.namedWindow(window_name)
   estimator = DepthEstimator()
-  estimator.load_preset('./stereo presets/7_stereo_preset.json')
+  estimator.load_preset()
   estimator.train_depth_mapping()
   session = calibration.CalibrateSession()
   

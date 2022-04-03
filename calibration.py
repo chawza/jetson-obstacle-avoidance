@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import os
+import presetloader
 
 default_save_img_dir = os.path.join(os.getcwd(), 'calibration_img')
 
@@ -111,32 +112,6 @@ def check_board_calibration():
 
   return stereoMapL, stereoMapR
 
-def save_calibration_map_preset(stereoMapL, stereoMapR, preset_dir=None):
-  if preset_dir == None:
-    preset_dir = os.path.join(os.getcwd(), 'calibration_preset')
-
-  if not os.path.exists(preset_dir):
-    os.mkdir(preset_dir)
-  
-  np.save(os.path.join(preset_dir, 'stereoMapL_x.npy'), stereoMapL[0])
-  np.save(os.path.join(preset_dir, 'stereoMapL_y.npy'), stereoMapL[1])
-  np.save(os.path.join(preset_dir, 'stereoMapR_x.npy'), stereoMapR[0])
-  np.save(os.path.join(preset_dir, 'stereoMapR_y.npy'), stereoMapR[1])
-
-  print(f'saving camera preset in {preset_dir}')
-
-def load_calibrate_map_preset(preset_dir = None):
-  if preset_dir == None:
-    preset_dir = os.path.join(os.getcwd(), 'calibration_preset')
-
-  stereoMapL_x = np.load(os.path.join(preset_dir, 'stereoMapL_x.npy'))
-  stereoMapL_y = np.load(os.path.join(preset_dir, 'stereoMapL_y.npy'))
-  stereoMapR_x = np.load(os.path.join(preset_dir, 'stereoMapR_x.npy'))
-  stereoMapR_y = np.load(os.path.join(preset_dir, 'stereoMapR_y.npy'))
-
-  print('loading stereo camera preset from {}'.format(preset_dir))
-  return (stereoMapL_x, stereoMapL_y), (stereoMapR_x, stereoMapR_y)
-
 def calibrate_imgs(left, right, preset):
   (left_x, left_y), (right_x, right_y) = preset
   calibrated_left = cv2.remap(left, left_x, left_y, cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT, 0)
@@ -146,7 +121,7 @@ def calibrate_imgs(left, right, preset):
 def calibrate_cam():
   print('Camera Calibrating')
   stereoMapL, stereoMapR = check_board_calibration()
-  save_calibration_map_preset(stereoMapL, stereoMapR)
+  presetloader.save_calibration_map_preset(stereoMapL, stereoMapR)
   print('Done camera calibration')
 
 class CalibrateSession():
@@ -171,12 +146,8 @@ class CalibrateSession():
   def add_depth_map(self, disparity, depth):
     self.depth_mapping_list.append([disparity, depth])
 
-  def save_depth_map(self, file_name=None):
-    np.save(file_name or self.defult_depth_map_file_name, self.depth_mapping_list)
-
-  @staticmethod
-  def load_depth_map(file_name=None):
-    return np.load(file_name or 'depth_map.npy')
+  def save_depth_map(self):
+    presetloader.save_depth_map(self.depth_mapping_list)
 
 if __name__ == '__main__':
   import sys

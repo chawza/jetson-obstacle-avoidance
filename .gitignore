@@ -1,5 +1,7 @@
 venv
 __pycache__
 /**/__pycache__
-calibration_preset/*
 calibration_img/*
+preset/*.json
+preset/*.npy
+preset/*.pickle
