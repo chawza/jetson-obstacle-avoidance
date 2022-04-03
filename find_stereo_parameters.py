@@ -1,4 +1,3 @@
-import os
 import numpy as np 
 import cv2
 import calibration
@@ -46,7 +45,6 @@ print('Quit\t\t: Q')
 print('Save Preset\t: S')
 
 for imgL, imgR in cam.read():
-	imgR = cv2.flip(imgR, -1)
 	cal_left, cal_right = calibration.calibrate_imgs(imgL, imgR, cam_preset)
 	left_gray = cv2.cvtColor(cal_left, cv2.COLOR_BGR2GRAY)
 	right_gray = cv2.cvtColor(cal_right, cv2.COLOR_BGR2GRAY)
@@ -91,6 +89,7 @@ for imgL, imgR in cam.read():
 
 	cv2.imshow('Disparity', cmap_disparity)
 	cv2.imshow('Left Camera', cal_left)
+	cv2.imshow('Right Camera', cal_right)
 
 	# Close window using esc key
 	key = cv2.waitKey(1)
