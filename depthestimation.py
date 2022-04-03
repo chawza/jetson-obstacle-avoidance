@@ -2,23 +2,29 @@ import os
 import json
 import cv2
 import numpy as np
+import joblib
 
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import Pipeline
-import calibration
+import presetloader
+from dataclasses import dataclass
 
+@dataclass
+class DepthParameter():
+    near_depth: float
+    medium_depth: float
+    far_trehsold: float
+
+default_depth_param = DepthParameter(300, 600, 900)
 class DepthEstimator():
-  def __init__(self, cam_focal = .4, cam_baseline = 38, max_depth=3000, min_depth=0, frame_size = (640, 480)):
+  def __init__(self, depth_param = default_depth_param, cam_focal = .4, cam_baseline = 38, max_depth=3000, min_depth=0, frame_size = (640, 480)):
     # class variables
     self.stereo = cv2.StereoBM_create()
     self.stereo_preset_filename = 'stereo_preset'
-    self.depth_prediction_model = Pipeline([
-      ('poly', PolynomialFeatures(degree=3, include_bias=False, interaction_only=True)),
-      ('lienar', LinearRegression(fit_intercept=False))
-    ])
+    self.depth_param = depth_param
 
-    # depth calculation
+    # depth calculation parameter
     self.max_depth = max_depth
     self.min_depth = min_depth
     
@@ -27,6 +33,17 @@ class DepthEstimator():
 
     self.baseline = cam_baseline
     self.M = self.baseline * self.focal_length_in_px
+
+    # Depth estimation model
+    self.depth_prediction_model = Pipeline([
+      ('poly', PolynomialFeatures(degree=3)),
+      ('lienar', LinearRegression())
+    ])
+
+  def _block_maching(self, left, right):
+    disparity = self.stereo.compute(left, right)
+    disparity = disparity.astype(np.float32)
+    return disparity / 16
 
   # https://learnopencv.com/depth-perception-using-stereo-camera-python-c/
   def get_disparity(self, left_img, right_img):
@@ -48,12 +65,6 @@ class DepthEstimator():
     depth = self._estimate_depth(disparity)
     return depth
 
-
-  def _block_maching(self, left, right):
-    disparity = self.stereo.compute(left, right)
-    disparity = disparity.astype(np.float32)
-    return disparity / 16
-
     # https://answers.opencv.org/question/17076/conversion-focal-distance-from-mm-to-pixels/
   def _estimate_depth(self, disparity):
     depth =  self.M / disparity
@@ -63,7 +74,7 @@ class DepthEstimator():
     depth[depth > self.max_depth] = self.max_depth
     return depth
 
-
+  # utils
   def normalize_disparity(self, disparity):
     norm_disp = (disparity - self.stereo.getMinDisparity()) / self.stereo.getNumDisparities()
     return norm_disp
@@ -88,6 +99,7 @@ class DepthEstimator():
     int_depth = (norm_depth * 255).astype(np.dtype('uint8'))
     return cv2.applyColorMap(int_depth, cv2.COLORMAP_JET)
 
+  # SBM model
   def get_all_sbm_properties(self):
     sbm = self.stereo
     return {
@@ -110,43 +122,27 @@ class DepthEstimator():
       param_dir = os.path.join(os.path.dirname(__file__), 'stereo presets')
 
     params = self.get_all_sbm_properties()
-    preset_idx = self.reserve_stereo_preset_index() + 1
+    presetloader.save_sbm_preset_json(params)
 
-    file_path = os.path.join(param_dir, f'{preset_idx}_{self.stereo_preset_filename}.json')
-    with open(file_path, 'w') as file:
-      json.dump(params, file)
-
-
-  def load_preset(self, file_path=None):
+  def load_preset(self, filepath=None):
     sbm = self.stereo
-    default_stereo_preset_dir = 'stereo presets'
-
-    if file_path is None:
-      project_dir = os.path.dirname(__file__)
-      preset_dir = os.path.join(project_dir, default_stereo_preset_dir)
-      preset_list = os.listdir(preset_dir)
-      preset_list = [file_name for file_name in preset_list if file_name.endswith('.json')]
-      if len(preset_list) == 0:
-        raise FileNotFoundError('preset not found in {}'.format(preset_dir))
-      preset_list = sorted(preset_list)
-      file_path = os.path.join(default_stereo_preset_dir, preset_list[-1])
-
-    with open(file_path, 'r') as file:
-      print(f'reading preset in {file_path}')
-      loaded_preset = json.load(file)
-      if len(loaded_preset) < 1:
-        raise RuntimeError('Cannot load stereo preset')
-    
+    if filepath:
+      loaded_preset = presetloader.load_sbm_preset_json(filepath)
+    else:
+      loaded_preset = presetloader.load_sbm_preset_json()
+      
     for key, value in loaded_preset.items():
       try:
+        print('set{} to {}'.format(key, value))
         set_func = getattr(sbm, 'set{}'.format(key))
         set_func(int(value))
       except Exception as err:
         print('Unable to set {} to {}'.format(value, key))
         raise err
 
-  def train_depth_mapping(self, mapping_file = None):
-    depth_map = calibration.CalibrateSession.load_depth_map(mapping_file)
+  # Depth prediction
+  def train_depth_mapping(self, depth_map_filepath=None):
+    depth_map = presetloader.load_depth_map(depth_map_filepath)
     # make it sparse
     disparities = [[value[0]] for value in depth_map]
     depth_in_mm = [[value[1]] for value in depth_map]
@@ -154,17 +150,15 @@ class DepthEstimator():
     disparities = np.float32(disparities)
     depth_in_mm = np.float32(depth_in_mm)
 
-    print(disparities, depth_in_mm)
-
     self.depth_prediction_model.fit(disparities, depth_in_mm)    
     
   def predict_depth(self, disparity):
+    if isinstance(disparity, np.ndarray):
+      input_shape = disparity.shape
+      disparity = disparity.flatten().reshape(-1, 1)
+      depth =  self.depth_prediction_model.predict(disparity)
+      return depth.reshape(input_shape)
+    
+    # singe value
     result = self.depth_prediction_model.predict([[disparity]])
     return result[0][0]
-
-  def reserve_stereo_preset_index(current = False):
-    stereo_preset_dir = os.path.join(os.path.dirname(__file__), 'stereo presets')
-    files = os.listdir(stereo_preset_dir)
-    if current:
-      return len(files)
-    return len(files) + 1

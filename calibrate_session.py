@@ -54,7 +54,10 @@ def depth_calibration_session():
       disp = param['disparity']
       disp_value = disp[y][x]
       real_world_depth = input(f'Disparity {disp_value} Depth value (mm): ')
-      session.add_depth_map(disp_value, real_world_depth)
+      if not real_world_depth.isnumeric():
+        print('input {} is not numeric'.format(real_world_depth))
+        return
+      session.add_depth_map(np.float32(disp_value), np.float32(real_world_depth ))
 
   for left, right in camera.read(time_split=.01):
     left, right = calibration.calibrate_imgs(left, right, cam_preset)

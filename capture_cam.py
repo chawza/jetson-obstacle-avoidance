@@ -43,6 +43,14 @@ class StereoCams():
     self.cam_right.release()
     print('VideoCapture released')
 
+  def read_once(self):
+    _, left_img = self.cam_left.read()
+    _, right_img = self.cam_right.read()
+    right_img = cv2.flip(right_img, -1)
+    return left_img, right_img
+
   def clean_up(self):
     self.state = False
+    self.cam_left.release()
+    self.cam_right.release()
     print('cams stop')
