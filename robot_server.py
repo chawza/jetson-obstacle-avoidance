@@ -19,11 +19,11 @@ from robot import Robot, Action as RobotAction
 from depthestimation import DepthEstimator
 from capture_cam import StereoCams
 import calibration
+import presetloader
 
 HOST = os.getenv('APP_HOST')
 APP_PORT = os.getenv('APP_PORT')
 BROADCAST_PORT = os.getenv('BROADCAST_PORT')
-SBM_PRESET_PATH = os.getenv('SBM_PRESET_FILE')
 
 calibration_path_dir = './calibration_preset'
 
@@ -80,7 +80,6 @@ async def listen_controller(websocket: WebSocketServerProtocol):
           app_stop.set()
           await websocket.close()
         else:
-          print('WHAT', action)
           error_message = f'Unrecognized Action "{action}"'
           print(error_message)
 
@@ -93,15 +92,7 @@ async def listen_controller(websocket: WebSocketServerProtocol):
       robot.stop()
 
 async def broadcast_handler(websocket: WebSocketServerProtocol, _):
-  try:
-    cam_preset = calibration.load_calibrate_map_preset(preset_dir=calibration_path_dir)
-    depth_estimator = DepthEstimator()
-    depth_estimator.load_preset(SBM_PRESET_PATH)
-    print(depth_estimator.get_all_sbm_properties())
-  except Exception as err:
-    print('unable to load cam preset')
-    print(err)
-
+  global depth_estimator
   path = websocket.path
   left_img = sa.attach('left')
   right_img = sa.attach('right')
@@ -118,20 +109,35 @@ async def broadcast_handler(websocket: WebSocketServerProtocol, _):
         # img_to_send = cal_img_to_send
         
         ### Test stereo correspondence ###
-        # img_to_send = depth_estimator.get_disparity(left_gray, right_gray)
-        # img_to_send = depth_estimator.disparity_to_colormap(img_to_send)
+        # disparity = depth_estimator.get_disparity(left_gray, right_gray)
+        # img_to_send = depth_estimator.disparity_to_colormap(disparity)
+
+        ### Test Depth Estimation
+        disparity = depth_estimator.get_disparity(left_gray, right_gray)
+        img_to_send = depth_estimator.disparity_to_colormap(disparity)
+        
+        crop_radius = 10
+        middle_y, middle_x = round(left_gray.shape[0] / 2), round(left_gray.shape[1] / 2)
+        img_to_send = cv2.rectangle(img_to_send, (middle_x - crop_radius, middle_y - crop_radius), (middle_x + crop_radius, middle_y + crop_radius), (255, 255, 255), 1)
+
+        crop_disparity = disparity[middle_y - crop_radius: middle_y + crop_radius, middle_x - crop_radius: middle_x + crop_radius]
+        depth_map = depth_estimator.predict_depth(crop_disparity)
+
+        print('min', np.min(depth_map))
 
         ### Test depth estimation ###
-        img_to_send = depth_estimator.get_depth(left_gray, right_gray)
-        img_to_send = depth_estimator.depth_to_colormap(img_to_send)
+        # img_to_send = depth_estimator.depth_to_colormap(img_to_send)
 
-        img_to_send = cv2.resize(img_to_send, dsize=(
-          round(img_to_send.shape[1]/2),
-          round(img_to_send.shape[0]/2),
-        ))
+        # img_to_send = cv2.resize(img_to_send, dsize=(
+        #   round(img_to_send.shape[1]/2),
+        #   round(img_to_send.shape[0]/2),
+        # ))
         byte_img = calibration.decode_img_to_byte(img_to_send)
+        start = time.perf_counter()
         await websocket.send(byte_img)
-        await asyncio.sleep(0.1)
+        end = time.perf_counter()
+        # print('time: {:.4f}'.format(end-start))
+        await asyncio.sleep(.1)
     except ConnectionClosedError:
       print('Broadcast: Reconnecting')
     except ConnectionClosedOK:
@@ -184,7 +190,16 @@ if __name__ == '__main__':
   robot_event = sa.create('robot_event', 2, dtype=bool)
 
   robot = Robot()
-  camera = StereoCams(1,0)
+  camera = StereoCams(0,1)
+  try:
+    cam_preset = presetloader.load_calibrate_map_preset()
+    depth_estimator = DepthEstimator()
+    depth_estimator.load_preset()
+    depth_estimator.load_depth_model()
+    print(depth_estimator.get_all_sbm_properties())
+  except Exception as err:
+    print('unable to load cam preset')
+    print(err)
   
   broadcast_server = Broadcast(broadcast_handler, host=HOST, port=BROADCAST_PORT, stop_event_name='robot_event')
   broadcast_server.start()

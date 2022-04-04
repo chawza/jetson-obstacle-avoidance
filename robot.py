@@ -120,6 +120,9 @@ class Robot:
       self.turn_dir = 0
       self.stop()
       return
+    
+    if self.state == Action.backward:
+      return
 
     self.speed -= self.speed_step
     if self.speed < -100:
@@ -219,26 +222,29 @@ def app():
   print('Robot Activated')
   bot = Robot()
   while True:
-    key = getch()
-    
-    if key == 'w':
-      bot.forward()
-    elif key == 's':
-      bot.backward()
-    elif key == 'x':
-      bot.stop()
-    elif key == 'd':
-      bot.right()
-    elif key == 'a':
-      bot.left()
-    
-    elif key == 'q':
-      bot.rotate_left()
-    elif key == 'e':
-      bot.rotate_right()
-    elif key == 'z':
-      break
-    bot.print_debug()
+    try:
+      key = getch()
+      
+      if key == 'w':
+        bot.forward()
+      elif key == 's':
+        bot.backward()
+      elif key == 'x':
+        bot.stop()
+      elif key == 'd':
+        bot.right()
+      elif key == 'a':
+        bot.left()
+      
+      elif key == 'q':
+        bot.rotate_left()
+      elif key == 'e':
+        bot.rotate_right()
+      elif key == 'z':
+        break
+      bot.print_debug()
+    except Exception as err:
+      print(err)
 
   bot.quit()
   print('Robot Deactivated')

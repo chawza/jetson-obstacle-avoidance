@@ -150,7 +150,10 @@ class DepthEstimator():
     disparities = np.float32(disparities)
     depth_in_mm = np.float32(depth_in_mm)
 
-    self.depth_prediction_model.fit(disparities, depth_in_mm)    
+    self.depth_prediction_model.fit(disparities, depth_in_mm)
+
+  def load_depth_model(self, filepath = None):
+    self.depth_prediction_model = presetloader.load_poly_linear_model(filepath)
     
   def predict_depth(self, disparity):
     if isinstance(disparity, np.ndarray):
@@ -162,3 +165,11 @@ class DepthEstimator():
     # singe value
     result = self.depth_prediction_model.predict([[disparity]])
     return result[0][0]
+
+if __name__ == '__main__':
+  import sys
+
+  if '-t' in sys.argv or '--train-and-save' in sys.argv:
+    esti = DepthEstimator()
+    esti.train_depth_mapping('./preset/depth_map.npy')
+    presetloader.save_poly_linear_model(esti.depth_prediction_model)
