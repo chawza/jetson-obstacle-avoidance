@@ -24,6 +24,7 @@ import presetloader
 HOST = os.getenv('APP_HOST')
 APP_PORT = os.getenv('APP_PORT')
 BROADCAST_PORT = os.getenv('BROADCAST_PORT')
+SBM_PRESET_FILE = os.getenv('SBM_PRESET_FILE')
 
 calibration_path_dir = './calibration_preset'
 
@@ -99,35 +100,60 @@ async def broadcast_handler(websocket: WebSocketServerProtocol, _):
   if path == '/cam':
     try:
       print('Broadcast: Connected')
-      print('borad cast cam in port {}'.format(websocket.port))
+      print('broadcast cam in port {}'.format(websocket.port))
       while True:
+        ### Display RAW
+        # img_to_send = np.hstack((left_img, right_img))
+
         ### Calibrate cams ###
         cal_left, cal_right = calibration.calibrate_imgs(left_img, right_img, preset=cam_preset)
+        # cal_img_to_send = np.hstack((cal_left, cal_right))
+        # img_to_send = np.vstack((img_to_send, cal_img_to_send))
+        # img_to_send = cal_img_to_send
+
         left_gray = cv2.cvtColor(cal_left, cv2.COLOR_BGR2GRAY)
         right_gray = cv2.cvtColor(cal_right, cv2.COLOR_BGR2GRAY)
-        # cal_img_to_send = np.hstack((left_gray, right_gray))
-        # img_to_send = cal_img_to_send
         
         ### Test stereo correspondence ###
         # disparity = depth_estimator.get_disparity(left_gray, right_gray)
         # img_to_send = depth_estimator.disparity_to_colormap(disparity)
-
-        ### Test Depth Estimation
-        disparity = depth_estimator.get_disparity(left_gray, right_gray)
-        img_to_send = depth_estimator.disparity_to_colormap(disparity)
         
-        crop_radius = 10
-        middle_y, middle_x = round(left_gray.shape[0] / 2), round(left_gray.shape[1] / 2)
-        img_to_send = cv2.rectangle(img_to_send, (middle_x - crop_radius, middle_y - crop_radius), (middle_x + crop_radius, middle_y + crop_radius), (255, 255, 255), 1)
+        ### TEST 1: Disparity and Cal left and right
+        # img_to_send = np.hstack((cal_left, img_to_send, cal_right))
 
-        crop_disparity = disparity[middle_y - crop_radius: middle_y + crop_radius, middle_x - crop_radius: middle_x + crop_radius]
-        depth_map = depth_estimator.predict_depth(crop_disparity)
+        ### TEST 2: Uncalibrated and Calibrated Img
+        cal_img = np.hstack((left_img, right_img))
+        uncal_img = np.hstack((cal_left, cal_right))
+        img_to_send = np.vstack((cal_img, uncal_img))
 
-        print('min', np.min(depth_map))
 
-        ### Test depth estimation ###
-        # img_to_send = depth_estimator.depth_to_colormap(img_to_send)
+        ### Test Depth Estimation        
+        # crop_radius = 40
+        # y_offset = 50
+        # middle_y, middle_x = round(left_gray.shape[0] / 2), round(left_gray.shape[1] / 2)
+        # middle_y += y_offset
+        # img_to_send = cv2.rectangle(img_to_send, (middle_x - crop_radius, middle_y - crop_radius), (middle_x + crop_radius, middle_y + crop_radius), (255, 255, 255), 2)
 
+        # crop_disparity = disparity[middle_y - crop_radius: middle_y + crop_radius, middle_x - crop_radius: middle_x + crop_radius]
+        # depth_map = depth_estimator.predict_depth(crop_disparity)
+
+        ### TEST 3: Disparity image and Depth image
+        # depth_map = depth_estimator.predict_depth(disparity)
+        # depth_map = depth_estimator.depth_to_colormap(depth_map)
+        # img_to_send = np.hstack((cal_left, img_to_send, depth_map))
+
+        # middle_x_left = middle_x - 100
+        # middle_x_right = middle_x + 100
+        # img_to_send = cv2.rectangle(img_to_send, (middle_x_left - crop_radius, middle_y - crop_radius), (middle_x_left + crop_radius, middle_y + crop_radius), (255, 255, 255), 2)
+        # img_to_send = cv2.rectangle(img_to_send, (middle_x_right - crop_radius, middle_y - crop_radius), (middle_x_right + crop_radius, middle_y + crop_radius), (255, 255, 255), 2)
+
+        # left_crop = disparity[middle_y - crop_radius: middle_y + crop_radius, middle_x_left - crop_radius: middle_x_left + crop_radius]
+        # right_crop = disparity[middle_y - crop_radius: middle_y + crop_radius, middle_x_right - crop_radius: middle_x_right + crop_radius]
+
+        # diff = np.min(left_crop) - np.min(right_crop)
+        # print('min', np.min(depth_map))
+        # print('dif ', diff)
+        
         # img_to_send = cv2.resize(img_to_send, dsize=(
         #   round(img_to_send.shape[1]/2),
         #   round(img_to_send.shape[0]/2),
@@ -194,7 +220,7 @@ if __name__ == '__main__':
   try:
     cam_preset = presetloader.load_calibrate_map_preset()
     depth_estimator = DepthEstimator()
-    depth_estimator.load_preset()
+    depth_estimator.load_preset(SBM_PRESET_FILE)
     depth_estimator.load_depth_model()
     print(depth_estimator.get_all_sbm_properties())
   except Exception as err:
