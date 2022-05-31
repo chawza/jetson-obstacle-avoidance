@@ -70,8 +70,8 @@ def check_board_calibration():
     left_img = cv2.imread(left_path, cv2.IMREAD_GRAYSCALE)
     right_img = cv2.imread(right_path, cv2.IMREAD_GRAYSCALE)
     
-    retL, cornersLeft = cv2.findChessboardCorners(left_img, chessboard_corner_size, None)
-    retR, cornersRight = cv2.findChessboardCorners(right_img, chessboard_corner_size, None)
+    retL, cornersLeft = cv2.findChessboardCorners(left_img, chessboard_corner_size, None, flags=cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE)
+    retR, cornersRight = cv2.findChessboardCorners(right_img, chessboard_corner_size, None, flags=cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE)
 
     if retL and retR:
       objpoints.append(objp)
@@ -114,8 +114,8 @@ def check_board_calibration():
 
 def calibrate_imgs(left, right, preset):
   (left_x, left_y), (right_x, right_y) = preset
-  calibrated_left = cv2.remap(left, left_x, left_y, cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT, 0)
-  calibrated_right = cv2.remap(right, right_x, right_y, cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT, 0)
+  calibrated_left = cv2.remap(left, left_x, left_y, cv2.INTER_LINEAR, cv2.BORDER_CONSTANT, 0)
+  calibrated_right = cv2.remap(right, right_x, right_y, cv2.INTER_LINEAR, cv2.BORDER_CONSTANT, 0)
   return calibrated_left, calibrated_right
   
 def calibrate_cam():

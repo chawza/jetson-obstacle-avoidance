@@ -3,8 +3,6 @@ try:
   from getch import getch
 except ImportError:
   pass
-import time
-from cv2 import RETR_CCOMP
 
 '''
 W : Forward / Speed up
@@ -44,7 +42,7 @@ class Robot:
     self.speed = 0  # 0...255
     self.speed_step = 25
     self.turn_dir = 0 # when n < 0 : turn left when n > 0 : turn right
-    self.max_turn = 3
+    self.max_turn = 6
     
     # Robot initiation
     self.stop()
@@ -63,8 +61,8 @@ class Robot:
     )
     self.left_pwm = GPIO.PWM(Pin.ena, 500)
     self.right_pwm = GPIO.PWM(Pin.enb, 500)
-    self.left_pwm.start(25)
-    self.right_pwm.start(25)
+    self.left_pwm.start(0)
+    self.right_pwm.start(0)
     print('Robot Setup')
 
   def _left_forward(self):
@@ -138,16 +136,20 @@ class Robot:
       self._right_forward()
       self.state = Action.forward
 
-  def right(self):
-    if self.turn_dir == self.max_turn:
-      return
-    if self.speed == 0:
-      return
-    
-    if self.turn_dir < 0:
-      self.turn_dir = 0
+  def right(self, set_turn_dir=None):
+    if set_turn_dir is None:
+      if self.turn_dir == self.max_turn:
+        return
+      if self.speed == 0:
+        return
+      
+      if self.turn_dir < 0:
+        self.turn_dir = 0
 
-    self.turn_dir += 1
+      self.turn_dir += 2
+    else:
+      self.turn_dir = set_turn_dir
+
     turn_difference = int(self.speed * (self.turn_dir / self.max_turn))
 
     self.left_pwm.ChangeDutyCycle(self.speed - turn_difference)
@@ -155,20 +157,24 @@ class Robot:
 
     self.state = Action.right
 
-  def left(self):
-    if self.turn_dir == -self.max_turn:
-      return
-    if self.speed == 0:
-      return
-    
-    if self.turn_dir > 0:
-      self.turn_dir = 0
+  def left(self, set_turn_dir=None):
+    if set_turn_dir is None:
+      if self.turn_dir == -self.max_turn:
+        return
+      if self.speed == 0:
+        return
+      
+      if self.turn_dir > 0:
+        self.turn_dir = 0
 
-    self.turn_dir += -1
-    turn_difference = int(self.speed * ( (-self.turn_dir) / self.max_turn))
+      self.turn_dir += -2
+    else:
+      self.turn_dir = set_turn_dir
+
+    turn_difference = int(abs(self.speed) * ( (-self.turn_dir) / self.max_turn))
     
-    self.left_pwm.ChangeDutyCycle(self.speed + turn_difference)
-    self.right_pwm.ChangeDutyCycle(self.speed - turn_difference)
+    self.left_pwm.ChangeDutyCycle(abs(self.speed) + turn_difference)
+    self.right_pwm.ChangeDutyCycle(abs(self.speed) - turn_difference)
 
     self.state = Action.left
 
@@ -206,39 +212,38 @@ class Robot:
       GPIO.cleanup()
       print('ROBOT Cleanup')
       self.is_cleaned_up = True
-    print("Robot Deactivated")
+    print("Robot Quit")
 
-  def print_debug(self):
-    if self.turn_dir == 0:
-      print('state: {} speed: {}'.format(self.state, self.speed))
-      return
-    
+  def print_debug(self):    
     print('state: {} speed: {} turn dir: {}'.format(self.state, self.speed, self.turn_dir))
     
 def app():
   print('Robot Activated')
   bot = Robot()
   while True:
-    key = getch()
-    
-    if key == 'w':
-      bot.forward()
-    elif key == 's':
-      bot.backward()
-    elif key == 'x':
-      bot.stop()
-    elif key == 'd':
-      bot.right()
-    elif key == 'a':
-      bot.left()
-    
-    elif key == 'q':
-      bot.rotate_left()
-    elif key == 'e':
-      bot.rotate_right()
-    elif key == 'z':
-      break
-    bot.print_debug()
+    try:
+      key = getch()
+      
+      if key == 'w':
+        bot.forward()
+      elif key == 's':
+        bot.backward()
+      elif key == 'x':
+        bot.stop()
+      elif key == 'd':
+        bot.right()
+      elif key == 'a':
+        bot.left()
+      
+      elif key == 'q':
+        bot.rotate_left()
+      elif key == 'e':
+        bot.rotate_right()
+      elif key == 'z':
+        break
+      bot.print_debug()
+    except Exception as err:
+      print(err)
 
   bot.quit()
   print('Robot Deactivated')

@@ -147,7 +147,10 @@ class DepthEstimator():
     disparities = np.float32(disparities)
     depth_in_mm = np.float32(depth_in_mm)
 
-    self.depth_prediction_model.fit(disparities, depth_in_mm)    
+    self.depth_prediction_model.fit(disparities, depth_in_mm)
+
+  def load_depth_model(self, filepath = None):
+    self.depth_prediction_model = presetloader.load_poly_linear_model(filepath)
     
   def predict_depth(self, disparity):
     if isinstance(disparity, np.ndarray):

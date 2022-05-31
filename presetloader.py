@@ -53,8 +53,10 @@ def get_latest_sbm_preset_filename():
 def save_poly_linear_model(model, filename = 'depth_estimation_model.pickle'):
   joblib.dump(model, os.path.join(project_dir, default_preset_dir, filename))
 
-def load_poly_linear_model(filename = 'depth_estimation_model.pickle'):
-  return joblib.load(os.path.join(project_dir, default_preset_dir, filename))
+def load_poly_linear_model(filename = None):
+  if filename is None:
+    filename = os.path.join(project_dir, default_preset_dir, 'depth_estimation_model.pickle')
+  return joblib.load(filename)
 
 # depth calibration
 def save_depth_map(depth_map, filename='depth_map.npy'):
