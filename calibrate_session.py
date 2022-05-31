@@ -1,8 +1,15 @@
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 import cv2
 import numpy as np
 import calibration
 from capture_cam import StereoCams
+from depthestimation import DepthEstimator
 import presetloader
+
+SBM_PRESET_FILE = os.getenv('SBM_PRESET_FILE')
 
 is_calibrate = True
 calibration.setup_img_save_directory()
@@ -12,14 +19,25 @@ except FileNotFoundError:
   is_calibrate = False
 camera = StereoCams(left_idx=0, right_idx=2)
 
+
 def stereo_calibration_session():
   global is_calibrate
+  estimator = DepthEstimator()
+  estimator.load_preset(SBM_PRESET_FILE)
   counter = calibration.initiate_img_counter()
+  test_disparity = False
   for left, right in camera.read():
     if is_calibrate:
-      left, right = calibration.calibrate_imgs(left, right, cam_preset)
-
-    img = np.hstack((left, right))
+      cal_left, cal_right = calibration.calibrate_imgs(left, right, cam_preset)
+      img = np.hstack((cal_left, cal_right))
+    elif test_disparity:
+      cal_left, cal_right = calibration.calibrate_imgs(left, right, cam_preset)
+      left_gray = cv2.cvtColor(cal_left, cv2.COLOR_BGR2GRAY)
+      right_gray = cv2.cvtColor(cal_right, cv2.COLOR_BGR2GRAY)
+      disparity = estimator.get_disparity(left_gray, right_gray)
+      img = estimator.disparity_to_colormap(disparity)
+    else:
+      img = np.hstack((left, right))
 
     cv2.imshow('img', img)
 
@@ -34,18 +52,24 @@ def stereo_calibration_session():
       except RuntimeError as err:
         print(err)
     if key == ord('c'):
-      is_calibrate = not is_calibrate
+      is_calibrate = True
+      test_disparity = not is_calibrate
+
       print(f'Calibrate: {is_calibrate}')
+
+    if key == ord('d'):
+      test_disparity = True
+      is_calibrate = not test_disparity
+
 
   camera.clean_up()
 
 def depth_calibration_session():
   global camera
-  from depthestimation import DepthEstimator
   window_name = 'disparity'
   cv2.namedWindow(window_name)
   estimator = DepthEstimator()
-  estimator.load_preset()
+  estimator.load_preset(SBM_PRESET_FILE)
   estimator.train_depth_mapping()
   session = calibration.CalibrateSession()
   
