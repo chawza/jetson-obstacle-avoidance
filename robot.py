@@ -14,10 +14,10 @@ E : rotate right
 '''
 
 class Pin:
-  inp1 = 16
-  inp2 = 15
-  inp3 = 12
-  inp4 = 11
+  inp1 = 22
+  inp2 = 21
+  inp3 = 16
+  inp4 = 15
   ena = 32
   enb = 33
 
@@ -40,7 +40,7 @@ class Robot:
     self.is_cleaned_up = False
     self.mode = 'drive'
     self.speed = 0  # 0...255
-    self.speed_step = 25
+    self.speed_step = 20
     self.turn_dir = 0 # when n < 0 : turn left when n > 0 : turn right
     self.max_turn = 6
     
@@ -57,7 +57,8 @@ class Robot:
         Pin.inp3,
         Pin.inp4
       ],
-      GPIO.OUT, initial=GPIO.LOW
+      GPIO.OUT,
+      initial=GPIO.LOW
     )
     self.left_pwm = GPIO.PWM(Pin.ena, 500)
     self.right_pwm = GPIO.PWM(Pin.enb, 500)
@@ -66,28 +67,28 @@ class Robot:
     print('Robot Setup')
 
   def _left_forward(self):
-    GPIO.output(Pin.inp1, GPIO.LOW)
-    GPIO.output(Pin.inp2, GPIO.HIGH)
-
-  def _left_backward(self):
-    GPIO.output(Pin.inp1, GPIO.HIGH)
-    GPIO.output(Pin.inp2, GPIO.LOW)
-  
-  def _left_stop(self):
-    GPIO.output(Pin.inp1, GPIO.LOW)
-    GPIO.output(Pin.inp2, GPIO.LOW)
-
-  def _right_forward(self):
-    GPIO.output(Pin.inp3, GPIO.HIGH)
-    GPIO.output(Pin.inp4, GPIO.LOW)
-
-  def _right_backward(self):
     GPIO.output(Pin.inp3, GPIO.LOW)
     GPIO.output(Pin.inp4, GPIO.HIGH)
+
+  def _left_backward(self):
+    GPIO.output(Pin.inp3, GPIO.HIGH)
+    GPIO.output(Pin.inp4, GPIO.LOW)
+  
+  def _left_stop(self):
+    GPIO.output(Pin.inp3, GPIO.HIGH)
+    GPIO.output(Pin.inp4, GPIO.HIGH)
+
+  def _right_forward(self):
+    GPIO.output(Pin.inp1, GPIO.HIGH)
+    GPIO.output(Pin.inp2, GPIO.LOW)
+
+  def _right_backward(self):
+    GPIO.output(Pin.inp1, GPIO.LOW)
+    GPIO.output(Pin.inp2, GPIO.HIGH)
   
   def _right_stop(self):
-    GPIO.output(Pin.inp3, GPIO.LOW)
-    GPIO.output(Pin.inp4, GPIO.LOW)
+    GPIO.output(Pin.inp1, GPIO.HIGH)
+    GPIO.output(Pin.inp2, GPIO.HIGH)
   
   def forward(self):
     #if device is turning, forward will go straight
@@ -98,7 +99,7 @@ class Robot:
     self.speed += self.speed_step
     if self.speed > 100:
       self.speed = 100
-    set_speed = self.speed if self.speed >= 0 else -self.speed
+    set_speed = abs(self.speed)
 
     self.left_pwm.ChangeDutyCycle(set_speed)
     self.right_pwm.ChangeDutyCycle(set_speed)
@@ -122,7 +123,7 @@ class Robot:
     self.speed -= self.speed_step
     if self.speed < -100:
       self.speed = -100
-    set_speed = self.speed if self.speed >= 0 else -self.speed
+    set_speed = abs(self.speed)
 
     self.left_pwm.ChangeDutyCycle(set_speed)
     self.right_pwm.ChangeDutyCycle(set_speed)
