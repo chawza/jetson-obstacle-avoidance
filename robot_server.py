@@ -29,8 +29,10 @@ calibration_path_dir = './calibration_preset'
 
 app_stop = None
 cam_stop = None
-
+crop_radius = 20
+max_n_box = round(320 / crop_radius * 2)
 captured_img_size = (480, 640, 3)
+min_object_distance = 2000
 
 def read_cam_task():
   global app_stop
@@ -91,9 +93,6 @@ async def listen_controller(websocket: WebSocketServerProtocol):
       print('Robot Commmand: Disconnected')
       robot.stop()
 
-crop_radius = 20
-max_n_box = round(320 / crop_radius * 2)
-
 def obstacle_avoidance(disparity):
   global depth_estimator
   global crop_radius
@@ -112,7 +111,7 @@ def obstacle_avoidance(disparity):
     depth_map = depth_estimator.predict_depth(cropped_disparity)
     min_distance = np.min(depth_map)
 
-    if min_distance < 2000:
+    if min_distance < min_object_distance:
       right_box_index += 1
     else:
       break
@@ -123,7 +122,7 @@ def obstacle_avoidance(disparity):
     depth_map = depth_estimator.predict_depth(cropped_disparity)
     min_distance = np.min(depth_map)
 
-    if min_distance < 2000:
+    if min_distance < min_object_distance:
       left_box_index -= 1
     else:
       break
