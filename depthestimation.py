@@ -117,12 +117,9 @@ class DepthEstimator():
     }
 
 
-  def save_current_preset(self, param_dir = None):
-    if param_dir == None:
-      param_dir = os.path.join(os.path.dirname(__file__), 'stereo presets')
-
+  def save_current_preset(self, filename = None):
     params = self.get_all_sbm_properties()
-    presetloader.save_sbm_preset_json(params)
+    presetloader.save_sbm_preset_json(params, filename)
 
   def load_preset(self, filepath=None):
     sbm = self.stereo
@@ -162,3 +159,17 @@ class DepthEstimator():
     # singe value
     result = self.depth_prediction_model.predict([[disparity]])
     return result[0][0]
+
+
+def train_model():
+  estimator = DepthEstimator()
+  estimator.train_depth_mapping(depth_map_filepath='./preset/depth_map.npy')
+  print('model trained')
+  presetloader.save_poly_linear_model(estimator.depth_prediction_model)
+  print('model saved')
+
+if __name__ == '__main__':
+  import sys
+
+  if '--train-and-save' in sys.argv:
+    train_model()
