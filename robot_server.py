@@ -6,7 +6,6 @@ from threading import Thread
 import asyncio
 from getch import getch
 import time
-
 import cv2
 import numpy as np
 import SharedArray as sa
@@ -92,6 +91,95 @@ async def listen_controller(websocket: WebSocketServerProtocol):
       print('Robot Commmand: Disconnected')
       robot.stop()
 
+crop_radius = 20
+max_n_box = round(320 / crop_radius * 2)
+
+def obstacle_avoidance(disparity):
+  global depth_estimator
+  global crop_radius
+  img_height = disparity.shape[0]
+  img_width = disparity.shape[1]
+
+  y_offset = 50
+  middle_y, middle_x = round(img_height / 2), round(img_width / 2)
+  middle_y += y_offset
+
+  left_box_index = 0
+  right_box_index = 0
+  # detect the object distance in right side of image
+  for middle_x_right in range(middle_x, img_width, crop_radius * 2):
+    cropped_disparity = disparity[middle_y - crop_radius: middle_y + crop_radius, middle_x_right: middle_x_right + crop_radius * 2]
+    depth_map = depth_estimator.predict_depth(cropped_disparity)
+    min_distance = np.min(depth_map)
+
+    if min_distance < 2000:
+      right_box_index += 1
+    else:
+      break
+
+  # detect the object distance in left side of image
+  for middle_x_left in range(round(img_width / 2), 0,  -(crop_radius * 2)):
+    cropped_disparity = disparity[middle_y - crop_radius: middle_y + crop_radius, middle_x_left - (crop_radius * 2): middle_x_left]
+    depth_map = depth_estimator.predict_depth(cropped_disparity)
+    min_distance = np.min(depth_map)
+
+    if min_distance < 2000:
+      left_box_index -= 1
+    else:
+      break
+  
+  box_diff = left_box_index + right_box_index
+  if box_diff < 0:
+    # print('GO RIGHT')
+    print(f'RIGHT\t: {left_box_index / max_n_box} {right_box_index / max_n_box}')
+  elif box_diff > 0:
+    # print('GO LEFT')
+    print(f'LEFT\t: {left_box_index / max_n_box} {right_box_index / max_n_box}')
+  elif abs(left_box_index) > right_box_index:
+    print("ROTATE LEFT")
+  elif abs(left_box_index) < right_box_index:
+    print("ROTATE RIGHT")
+  else:
+    print('FORWARD')
+
+  return left_box_index, right_box_index
+
+def draw_obstacle_box(disparity_cmap, left_box_index, right_box_index):
+  global crop_radius
+  img_height = disparity_cmap.shape[0]
+  img_width = disparity_cmap.shape[1]
+
+  y_offset = 50
+  middle_y, middle_x = round(img_height / 2), round(img_width / 2)
+  middle_y += y_offset
+
+  for left_index_x in range(left_box_index, 0, 1):
+    top_left_x = middle_x - (abs(left_index_x) * crop_radius * 2)
+    bottom_right_x = middle_x  - ((abs(left_index_x) - 1) * crop_radius * 2)
+    top_left = (
+      (top_left_x),
+      (middle_y - crop_radius)
+    )
+    bottom_right = (
+      (bottom_right_x),
+      (middle_y + crop_radius)
+    )
+    disparity_cmap = cv2.rectangle(disparity_cmap, top_left, bottom_right, (255, 255, 255), 3)
+
+  for right_index_x in range(0, right_box_index + 1, 1):
+    top_left_x = middle_x + (abs(right_index_x) * crop_radius * 2)
+    bottom_right_x = middle_x  + ((abs(right_index_x) + 1) * crop_radius * 2)
+    top_left = (
+      (top_left_x),
+      (middle_y - crop_radius)
+    )
+    bottom_right = (
+      (bottom_right_x),
+      (middle_y + crop_radius)
+    )
+    disparity_cmap = cv2.rectangle(disparity_cmap, top_left, bottom_right, (255, 255, 255), 3)
+  return disparity_cmap
+
 async def broadcast_handler(websocket: WebSocketServerProtocol, _):
   global depth_estimator
   path = websocket.path
@@ -108,7 +196,7 @@ async def broadcast_handler(websocket: WebSocketServerProtocol, _):
         ### Calibrate cams ###
         cal_left, cal_right = calibration.calibrate_imgs(left_img, right_img, preset=cam_preset)
         # cal_img_to_send = np.hstack((cal_left, cal_right))
-        # img_to_send = np.vstack((img_to_send, cal_img_to_send))
+        # # img_to_send = np.vstack((img_to_send, cal_img_to_send))
         # img_to_send = cal_img_to_send
 
         left_gray = cv2.cvtColor(cal_left, cv2.COLOR_BGR2GRAY)
@@ -122,42 +210,32 @@ async def broadcast_handler(websocket: WebSocketServerProtocol, _):
         # img_to_send = np.hstack((cal_left, img_to_send, cal_right))
 
         ### TEST 2: Uncalibrated and Calibrated Img
-        cal_img = np.hstack((left_img, right_img))
-        uncal_img = np.hstack((cal_left, cal_right))
-        img_to_send = np.vstack((cal_img, uncal_img))
-
-
-        ### Test Depth Estimation        
-        # crop_radius = 40
-        # y_offset = 50
-        # middle_y, middle_x = round(left_gray.shape[0] / 2), round(left_gray.shape[1] / 2)
-        # middle_y += y_offset
-        # img_to_send = cv2.rectangle(img_to_send, (middle_x - crop_radius, middle_y - crop_radius), (middle_x + crop_radius, middle_y + crop_radius), (255, 255, 255), 2)
-
-        # crop_disparity = disparity[middle_y - crop_radius: middle_y + crop_radius, middle_x - crop_radius: middle_x + crop_radius]
-        # depth_map = depth_estimator.predict_depth(crop_disparity)
+        # cal_img = np.hstack((left_img, right_img))
+        # uncal_img = np.hstack((cal_left, cal_right))
+        # img_to_send = np.vstack((cal_img, uncal_img))
 
         ### TEST 3: Disparity image and Depth image
+        # disparity = depth_estimator.get_disparity(left_gray, right_gray)
         # depth_map = depth_estimator.predict_depth(disparity)
         # depth_map = depth_estimator.depth_to_colormap(depth_map)
-        # img_to_send = np.hstack((cal_left, img_to_send, depth_map))
-
-        # middle_x_left = middle_x - 100
-        # middle_x_right = middle_x + 100
-        # img_to_send = cv2.rectangle(img_to_send, (middle_x_left - crop_radius, middle_y - crop_radius), (middle_x_left + crop_radius, middle_y + crop_radius), (255, 255, 255), 2)
-        # img_to_send = cv2.rectangle(img_to_send, (middle_x_right - crop_radius, middle_y - crop_radius), (middle_x_right + crop_radius, middle_y + crop_radius), (255, 255, 255), 2)
-
-        # left_crop = disparity[middle_y - crop_radius: middle_y + crop_radius, middle_x_left - crop_radius: middle_x_left + crop_radius]
-        # right_crop = disparity[middle_y - crop_radius: middle_y + crop_radius, middle_x_right - crop_radius: middle_x_right + crop_radius]
-
-        # diff = np.min(left_crop) - np.min(right_crop)
-        # print('min', np.min(depth_map))
-        # print('dif ', diff)
+        # # # img_to_send = np.hstack((cal_left, img_to_send, depth_map))
+        # img_to_send = depth_map
         
-        # img_to_send = cv2.resize(img_to_send, dsize=(
-        #   round(img_to_send.shape[1]/2),
-        #   round(img_to_send.shape[0]/2),
-        # ))
+        ### TEST 4: Obstacle Avoidance and Draw Box
+        disparity = depth_estimator.get_disparity(left_gray, right_gray)
+        disparity_cmap = depth_estimator.disparity_to_colormap(disparity)
+        left_box_index, right_box_index = obstacle_avoidance(disparity)
+
+        if left_box_index != 0 and right_box_index != 0:
+          img_to_send = draw_obstacle_box(disparity_cmap, left_box_index, right_box_index)
+        else:
+          img_to_send = disparity_cmap
+        img_to_send = np.hstack((cal_left, img_to_send))
+        
+        img_to_send = cv2.resize(img_to_send, dsize=(
+          round(img_to_send.shape[1]/2),
+          round(img_to_send.shape[0]/2),
+        ))
         byte_img = calibration.decode_img_to_byte(img_to_send)
         start = time.perf_counter()
         await websocket.send(byte_img)
