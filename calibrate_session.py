@@ -11,31 +11,44 @@ import presetloader
 
 SBM_PRESET_FILE = os.getenv('SBM_PRESET_FILE')
 
-is_calibrate = True
+class CAM_MODE:
+  NORMAL = 'NORMAL'
+  CALIBRATE = 'CALIBRATE'
+  DISPARITY = 'DISPARITY'
+  DEPTH = 'DEPTH'
+
+curr_cam_mode = CAM_MODE.NORMAL
 calibration.setup_img_save_directory()
 try:
   cam_preset = presetloader.load_calibrate_map_preset()
 except FileNotFoundError:
-  is_calibrate = False
+  curr_cam_mode = CAM_MODE.CALIBRATE
 camera = StereoCams(left_idx=0, right_idx=2)
 
 
 def stereo_calibration_session():
-  global is_calibrate
+  global curr_cam_mode
   estimator = DepthEstimator()
   estimator.load_preset(SBM_PRESET_FILE)
+  estimator.load_depth_model('./preset/depth_estimation_model.pickle')
   counter = calibration.initiate_img_counter()
-  test_disparity = False
+ 
   for left, right in camera.read():
-    if is_calibrate:
+    if curr_cam_mode == CAM_MODE.CALIBRATE:
       cal_left, cal_right = calibration.calibrate_imgs(left, right, cam_preset)
       img = np.hstack((cal_left, cal_right))
-    elif test_disparity:
+    elif curr_cam_mode == CAM_MODE.DISPARITY:
       cal_left, cal_right = calibration.calibrate_imgs(left, right, cam_preset)
       left_gray = cv2.cvtColor(cal_left, cv2.COLOR_BGR2GRAY)
       right_gray = cv2.cvtColor(cal_right, cv2.COLOR_BGR2GRAY)
       disparity = estimator.get_disparity(left_gray, right_gray)
       img = estimator.disparity_to_colormap(disparity)
+    elif curr_cam_mode == CAM_MODE.DEPTH:
+      cal_left, cal_right = calibration.calibrate_imgs(left, right, cam_preset)
+      left_gray = cv2.cvtColor(cal_left, cv2.COLOR_BGR2GRAY)
+      right_gray = cv2.cvtColor(cal_right, cv2.COLOR_BGR2GRAY)
+      depth = estimator.get_depth(left_gray, right_gray)
+      img = estimator.depth_to_colormap(depth)
     else:
       img = np.hstack((left, right))
 
@@ -51,16 +64,22 @@ def stereo_calibration_session():
         counter += 1
       except RuntimeError as err:
         print(err)
-    if key == ord('c'):
-      is_calibrate = True
-      test_disparity = not is_calibrate
 
-      print(f'Calibrate: {is_calibrate}')
+    if key == ord('c'):
+      curr_cam_mode = CAM_MODE.CALIBRATE
+      print(f'Calibrate: {curr_cam_mode}')
+
+    if key == ord('n'):
+      curr_cam_mode = CAM_MODE.NORMAL
+      print(f'Calibrate: {curr_cam_mode}')
 
     if key == ord('d'):
-      test_disparity = True
-      is_calibrate = not test_disparity
+      curr_cam_mode = CAM_MODE.DISPARITY
+      print(f'Calibrate: {curr_cam_mode}')
 
+    if key == ord('f'):
+      curr_cam_mode = CAM_MODE.DEPTH
+      print(f'Calibrate: {curr_cam_mode}')
 
   camera.clean_up()
 
