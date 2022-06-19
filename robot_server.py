@@ -32,7 +32,8 @@ cam_stop = None
 crop_radius = 20
 max_n_box = round(320 / crop_radius * 2)
 captured_img_size = (480, 640, 3)
-min_object_distance = 2000
+object_detect_distance = 2500
+closest_object_distance = 750
 
 def read_cam_task():
   global app_stop
@@ -93,7 +94,7 @@ async def listen_controller(websocket: WebSocketServerProtocol):
       print('Robot Commmand: Disconnected')
       robot.stop()
 
-def obstacle_avoidance(disparity):
+def detect_obstacle(disparity):
   global depth_estimator
   global crop_radius
   img_height = disparity.shape[0]
@@ -111,7 +112,7 @@ def obstacle_avoidance(disparity):
     depth_map = depth_estimator.predict_depth(cropped_disparity)
     min_distance = np.min(depth_map)
 
-    if min_distance < min_object_distance:
+    if min_distance < object_detect_distance:
       right_box_index += 1
     else:
       break
@@ -122,26 +123,16 @@ def obstacle_avoidance(disparity):
     depth_map = depth_estimator.predict_depth(cropped_disparity)
     min_distance = np.min(depth_map)
 
-    if min_distance < min_object_distance:
+    if min_distance < object_detect_distance:
       left_box_index -= 1
     else:
       break
-  
-  box_diff = left_box_index + right_box_index
-  if box_diff < 0:
-    # print('GO RIGHT')
-    print(f'RIGHT\t: {left_box_index / max_n_box} {right_box_index / max_n_box}')
-  elif box_diff > 0:
-    # print('GO LEFT')
-    print(f'LEFT\t: {left_box_index / max_n_box} {right_box_index / max_n_box}')
-  elif abs(left_box_index) > right_box_index:
-    print("ROTATE LEFT")
-  elif abs(left_box_index) < right_box_index:
-    print("ROTATE RIGHT")
-  else:
-    print('FORWARD')
 
-  return left_box_index, right_box_index
+  # get obstacle distance value
+  cropped_disp = disparity[middle_y - crop_radius: middle_y + crop_radius, middle_x: middle_x + crop_radius * 2]
+  object_distance = np.min(depth_estimator.predict_depth(cropped_disp))
+
+  return object_distance, left_box_index, right_box_index
 
 def draw_obstacle_box(disparity_cmap, left_box_index, right_box_index):
   global crop_radius
@@ -179,8 +170,41 @@ def draw_obstacle_box(disparity_cmap, left_box_index, right_box_index):
     disparity_cmap = cv2.rectangle(disparity_cmap, top_left, bottom_right, (255, 255, 255), 3)
   return disparity_cmap
 
+def obstacle_avoidance(distance, left_box_index, right_box_index):
+  global depth_estimator
+  box_diff = left_box_index + right_box_index
+
+  if distance < closest_object_distance:
+    robot.stop()
+    print('STOP')
+  elif distance > object_detect_distance:
+    robot.forward(set_speed=40)
+    print('FORWARD: FULL ONWARD!')
+    time.sleep(1)
+    robot.stop()
+  elif distance > closest_object_distance and distance < object_detect_distance:
+    if box_diff < 0:
+      turn_dir = right_box_index / max_n_box * max_n_box
+      turn_dir = round(turn_dir)
+      robot.right(set_turn_dir=turn_dir)
+      print(f'RIGHT\t: {right_box_index} {turn_dir}')
+    elif box_diff > 0:
+      turn_dir = abs(left_box_index) / max_n_box * max_n_box
+      turn_dir = round(turn_dir)
+      robot.left(set_turn_dir=turn_dir)
+      print(f'LEFT\t: {left_box_index} {turn_dir}')
+    else:
+      turn_dir = 1 / max_n_box * max_n_box
+      turn_dir = round(turn_dir)
+      robot.right(set_turn_dir=turn_dir)
+      print(f'RIGHT\t: {left_box_index} {turn_dir}')
+    robot.forward(set_speed=40)
+    time.sleep(2)
+    robot.stop()
+
 async def broadcast_handler(websocket: WebSocketServerProtocol, _):
   global depth_estimator
+  global robot
   path = websocket.path
   left_img = sa.attach('left')
   right_img = sa.attach('right')
@@ -189,6 +213,8 @@ async def broadcast_handler(websocket: WebSocketServerProtocol, _):
       print('Broadcast: Connected')
       print('broadcast cam in port {}'.format(websocket.port))
       while True:
+        # robot.stop()
+        # await asyncio.sleep(1)
         ### Display RAW
         # img_to_send = np.hstack((left_img, right_img))
 
@@ -223,7 +249,8 @@ async def broadcast_handler(websocket: WebSocketServerProtocol, _):
         ### TEST 4: Obstacle Avoidance and Draw Box
         disparity = depth_estimator.get_disparity(left_gray, right_gray)
         disparity_cmap = depth_estimator.disparity_to_colormap(disparity)
-        left_box_index, right_box_index = obstacle_avoidance(disparity)
+        distance, left_box_index, right_box_index = detect_obstacle(disparity)
+        # obstacle_avoidance(distance, left_box_index, right_box_index)
 
         if left_box_index != 0 and right_box_index != 0:
           img_to_send = draw_obstacle_box(disparity_cmap, left_box_index, right_box_index)
@@ -231,20 +258,19 @@ async def broadcast_handler(websocket: WebSocketServerProtocol, _):
           img_to_send = disparity_cmap
         img_to_send = np.hstack((cal_left, img_to_send))
         
+        # ### SEND IMAGE
         img_to_send = cv2.resize(img_to_send, dsize=(
           round(img_to_send.shape[1]/2),
           round(img_to_send.shape[0]/2),
         ))
         byte_img = calibration.decode_img_to_byte(img_to_send)
-        start = time.perf_counter()
         await websocket.send(byte_img)
-        end = time.perf_counter()
-        # print('time: {:.4f}'.format(end-start))
-        await asyncio.sleep(.1)
+        await asyncio.sleep(.01)
     except ConnectionClosedError:
       print('Broadcast: Reconnecting')
     except ConnectionClosedOK:
       print('Broadcast: Disconnected')
+      robot.stop()
   else:
     print(f'unknown path {path}')
 

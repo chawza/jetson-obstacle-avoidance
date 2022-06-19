@@ -12,9 +12,10 @@ class StereoCams():
     https://stackoverflow.com/questions/30032063/opencv-videocapture-lag-due-to-the-capture-buffer
     NOTE: not fully sync, but much better than before. other method to try
     https://stackoverflow.com/questions/21671139/how-to-synchronize-two-usb-cameras-to-use-them-as-stereo-camera """
-    self.cam_left.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-    self.cam_right.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+    self.cam_left.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+    self.cam_right.set(cv2.CAP_PROP_BUFFERSIZE, 5)
     # Other config: left = 1  right = 2
+    # Other config: left = 2  right = 5
 
     # set screen grab size
     self.cam_left.set(cv2.CAP_PROP_FRAME_WIDTH, capture_size[0])
