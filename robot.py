@@ -144,18 +144,27 @@ class Robot:
         return
       if self.speed == 0:
         return
-      
-      if self.turn_dir < 0:
+
+      if self.turn_dir >= 0:
+        self.turn_dir += self.turn_step
+      else:
         self.turn_dir = 0
 
-      self.turn_dir += 2
     else:
       self.turn_dir = set_turn_dir
 
     turn_difference = round(self.speed * (self.turn_dir / self.max_turn))
 
-    self.left_pwm.ChangeDutyCycle(self.speed - turn_difference)
-    self.right_pwm.ChangeDutyCycle(self.speed + turn_difference)
+    left_speed = self.speed - turn_difference
+    right_pwm = self.speed + turn_difference
+    print(f'LEFT: {left_speed}\tRIGHT: {right_pwm}')
+    self.left_pwm.ChangeDutyCycle(left_speed)
+    self.right_pwm.ChangeDutyCycle(right_pwm)
+
+    self.state = Action.right
+
+    self._left_forward()
+    self._right_forward()
 
     self.state = Action.right
 
@@ -166,17 +175,23 @@ class Robot:
       if self.speed == 0:
         return
       
-      if self.turn_dir > 0:
+      if self.turn_dir <= 0:
+        self.turn_dir -= self.turn_step
+      else:
         self.turn_dir = 0
 
-      self.turn_dir += -2
     else:
       self.turn_dir = set_turn_dir
 
-    turn_difference = round(abs(self.speed) * ( (-self.turn_dir) / self.max_turn))
+    print('TURN DIR ', self.turn_dir)
+
+    turn_difference = round(self.speed *  (abs(self.turn_dir) / self.max_turn))
     
-    self.left_pwm.ChangeDutyCycle(abs(self.speed) + turn_difference)
-    self.right_pwm.ChangeDutyCycle(abs(self.speed) - turn_difference)
+    left_speed = self.speed + turn_difference
+    right_pwm = self.speed - turn_difference
+    print(f'LEFT: {left_speed}\tRIGHT: {right_pwm}')
+    self.left_pwm.ChangeDutyCycle(left_speed)
+    self.right_pwm.ChangeDutyCycle(right_pwm)
 
     self.state = Action.left
 
