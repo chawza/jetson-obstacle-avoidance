@@ -42,7 +42,8 @@ class Robot:
     self.speed = 0  # 0...255
     self.speed_step = 20
     self.turn_dir = 0 # when n < 0 : turn left when n > 0 : turn right
-    self.max_turn = 10
+    self.turn_step = 20
+    self.max_turn = 100
     
     # Robot initiation
     self.stop()
@@ -100,9 +101,10 @@ class Robot:
       self.speed += self.speed_step
       if self.speed > 100:
         self.speed = 100
-      set_speed = abs(self.speed)
-    self.left_pwm.ChangeDutyCycle(set_speed - (set_speed  * .3))
-    self.right_pwm.ChangeDutyCycle(set_speed)
+    else:
+      self.speed = set_speed
+    self.left_pwm.ChangeDutyCycle(self.speed - (self.speed  * .3))
+    self.right_pwm.ChangeDutyCycle(self.speed)
 
     if self.speed >= 0:
       self._left_forward() 
@@ -124,10 +126,12 @@ class Robot:
       self.speed -= self.speed_step
       if self.speed < -100:
         self.speed = -100
-      set_speed = abs(self.speed)
+    else:
+      self.speed = set_speed
 
-    self.left_pwm.ChangeDutyCycle(set_speed - (set_speed  * .3))
-    self.right_pwm.ChangeDutyCycle(set_speed)
+    backward_speed = abs(self.speed)
+    self.left_pwm.ChangeDutyCycle(backward_speed - (backward_speed  * .3))
+    self.right_pwm.ChangeDutyCycle(backward_speed)
 
     if self.speed < 0:
       self._left_backward()
@@ -157,7 +161,6 @@ class Robot:
 
     left_speed = self.speed - turn_difference
     right_pwm = self.speed + turn_difference
-    print(f'LEFT: {left_speed}\tRIGHT: {right_pwm}')
     self.left_pwm.ChangeDutyCycle(left_speed)
     self.right_pwm.ChangeDutyCycle(right_pwm)
 
@@ -165,8 +168,6 @@ class Robot:
 
     self._left_forward()
     self._right_forward()
-
-    self.state = Action.right
 
   def left(self, set_turn_dir=None):
     if set_turn_dir is None:
@@ -183,13 +184,10 @@ class Robot:
     else:
       self.turn_dir = set_turn_dir
 
-    print('TURN DIR ', self.turn_dir)
-
     turn_difference = round(self.speed *  (abs(self.turn_dir) / self.max_turn))
     
     left_speed = self.speed + turn_difference
     right_pwm = self.speed - turn_difference
-    print(f'LEFT: {left_speed}\tRIGHT: {right_pwm}')
     self.left_pwm.ChangeDutyCycle(left_speed)
     self.right_pwm.ChangeDutyCycle(right_pwm)
 
@@ -237,6 +235,7 @@ class Robot:
 def app():
   print('Robot Activated')
   bot = Robot()
+  turn_dir = 0
   while True:
     try:
       key = getch()
@@ -258,7 +257,7 @@ def app():
         bot.rotate_right()
       elif key == 'z':
         break
-      bot.print_debug()
+      # bot.print_debug()
     except Exception as err:
       print(err)
 
