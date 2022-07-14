@@ -226,8 +226,8 @@ async def broadcast_handler(websocket: WebSocketServerProtocol, _):
         right_gray = cv2.cvtColor(cal_right, cv2.COLOR_BGR2GRAY)
         
         ### Test stereo correspondence ###
-        # disparity = depth_estimator.get_disparity(left_gray, right_gray)
-        # img_to_send = depth_estimator.disparity_to_colormap(disparity)
+        disparity = depth_estimator.get_disparity(left_gray, right_gray)
+        img_to_send = depth_estimator.disparity_to_colormap(disparity)
         
         ### TEST 1: Disparity and Cal left and right
         # img_to_send = np.hstack((cal_left, img_to_send, cal_right))
@@ -238,30 +238,31 @@ async def broadcast_handler(websocket: WebSocketServerProtocol, _):
         # img_to_send = np.vstack((cal_img, uncal_img))
 
         ### TEST 3: Disparity image and Depth image
-        # depth_map = depth_estimator.get_depth(left_gray, right_gray)
-        # depth_map = depth_estimator.depth_to_colormap(depth_map)
-        # # # # img_to_send = np.hstack((cal_left, img_to_send, depth_map))
+        depth_map = depth_estimator.get_depth(left_gray, right_gray)
+        depth_map = depth_estimator.depth_to_grayscale(depth_map)
+        img_to_send = np.hstack((cal_left, img_to_send, depth_map))
         # img_to_send = depth_map
         
         ### TEST 4: Obstacle Avoidance and Draw Box
-        disparity = depth_estimator.get_disparity(left_gray, right_gray)
-        disparity_cmap = depth_estimator.disparity_to_colormap(disparity)
-        min_distance_list = detect_obstacle(disparity)
-        await obstacle_avoidance(min_distance_list)
+        # disparity = depth_estimator.get_disparity(left_gray, right_gray)
+        # disparity_cmap = depth_estimator.disparity_to_colormap(disparity)
+        # min_distance_list = detect_obstacle(disparity)
+        # # await obstacle_avoidance(min_distance_list)
 
-        img_to_send = draw_obstacle_box(disparity_cmap, min_distance_list)        
+        # img_to_send = draw_obstacle_box(disparity_cmap, min_distance_list)        
         # img_to_send = np.hstack((cal_left, img_to_send))
 
         # ### SEND IMAGE
-        img_to_send = cv2.resize(img_to_send, dsize=(
-          round(img_to_send.shape[1]/2),
-          round(img_to_send.shape[0]/2),
-        ))
+        # img_to_send = cv2.resize(img_to_send, dsize=(
+        #   round(img_to_send.shape[1]/3),
+        #   round(img_to_send.shape[0]/3),
+        # ))
         byte_img = calibration.decode_img_to_byte(img_to_send)
         await websocket.send(byte_img)
         # await asyncio.sleep(.01)
         robot.stop()
-        await asyncio.sleep(2)
+        # await asyncio.sleep(2)
+        await asyncio.sleep(.01)
     except ConnectionClosedError:
       print('Broadcast: Reconnecting')
     except ConnectionClosedOK:
@@ -315,7 +316,7 @@ if __name__ == '__main__':
   robot_event = sa.create('robot_event', 2, dtype=bool)
 
   robot = Robot()
-  camera = StereoCams(0,1)
+  camera = StereoCams(1,0)
   try:
     cam_preset = presetloader.load_calibrate_map_preset()
     depth_estimator = DepthEstimator()
