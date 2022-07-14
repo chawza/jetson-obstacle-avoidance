@@ -1,0 +1,13 @@
+{
+    "NumDisparities": 144,
+    "BlockSize": 45,
+    "MinDisparity": 5,
+    "PreFilterType": 0,
+    "PreFilterSize": 29,
+    "PreFilterCap": 8,
+    "TextureThreshold": 9,
+    "UniquenessRatio": 0,
+    "SpeckleRange": 6,
+    "SpeckleWindowSize": 12,
+    "Disp12MaxDiff": 5
+}
