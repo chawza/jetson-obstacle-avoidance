@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 load_dotenv()
+import cv2
 
 import cv2
 import numpy as np
@@ -22,9 +23,14 @@ calibration.setup_img_save_directory()
 try:
   cam_preset = presetloader.load_calibrate_map_preset()
 except FileNotFoundError:
-  curr_cam_mode = CAM_MODE.CALIBRATE
+  curr_cam_mode = CAM_MODE.NORMAL
 camera = StereoCams(left_idx=0, right_idx=2)
 
+crop_radius = 20
+def get_min_depth(depth):
+  center_x, center_y = round(depth.shape[1]/2), round(depth.shape[0]/2)
+  cropped_depth = depth[center_y - crop_radius: center_y + crop_radius, center_x - crop_radius: center_x + crop_radius]
+  return np.min(cropped_depth)
 
 def stereo_calibration_session():
   global curr_cam_mode
@@ -48,6 +54,8 @@ def stereo_calibration_session():
       left_gray = cv2.cvtColor(cal_left, cv2.COLOR_BGR2GRAY)
       right_gray = cv2.cvtColor(cal_right, cv2.COLOR_BGR2GRAY)
       depth = estimator.get_depth(left_gray, right_gray)
+      min_depth = get_min_depth(depth)
+      cv2.putText(depth, f'depth: {min_depth}', (50, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale= 1, color=(255,0,0), thickness= 1, lineType= cv2.LINE_AA)
       img = estimator.depth_to_colormap(depth)
     else:
       img = np.hstack((left, right))
@@ -120,8 +128,9 @@ def depth_calibration_session():
       print(session.depth_mapping_list)
       print('length: ', len(session.depth_mapping_list))
     if ord('s') == key:
-      print('saving')
+      print('saving...')
       session.save_depth_map()
+      print('Saved!')
   
   print('out fo cam read')
   camera.clean_up()
