@@ -21,10 +21,12 @@ class Broadcast(Process):
     async with serve(
       self.ws_handler,
       self.host,
-      self.port
+      self.port,
+      ping_timeout=3
     ):
       print('Braodcast: serving in {} {}'.format(self.host, self.port))
       await self.stop_event()
+      print('Braodcast: stop serving in {} {}'.format(self.host, self.port))
 
   def run(self):
     asyncio.run(self.start_server())
@@ -35,7 +37,7 @@ class Broadcast(Process):
     """
     event = sa.attach(self.stop_event_name)
     while True:
-      if event[0] == True:
+      if event[0] == 1:
         break
       await asyncio.sleep(1)
     return
