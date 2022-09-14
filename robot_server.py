@@ -179,18 +179,18 @@ async def broadcast_handler(websocket: WebSocketServerProtocol, _):
           distance_list, max_disparity_list = robot_process.detect_obstacle(disparity=disparity)
 
           # print middle object distance
-          middle_idx = len(distance_list) // 2
-          print(f'idx\t: {middle_idx}\tdistance\t: {distance_list[middle_idx]}\tdisparity\t: {max_disparity_list[middle_idx]}')
+          # middle_idx = len(distance_list) // 2
+          # print(f'idx\t: {middle_idx}\tdistance\t: {distance_list[middle_idx]}\tdisparity\t: {max_disparity_list[middle_idx]}')
 
           # img_to_send = depth_estimator.disparity_to_colormap(disparity)
           img_to_send = left_img.copy()
           img_to_send = AutonomousRobot.draw_obstacle_box(img_to_send, distance_list)
 
         ### SEND IMAGE
-        # img_to_send = cv2.resize(img_to_send, dsize=(
-        #   round(img_to_send.shape[1]/3),
-        #   round(img_to_send.shape[0]/3),
-        # ))
+        img_to_send = cv2.resize(img_to_send, dsize=(
+          round(img_to_send.shape[1]/3),
+          round(img_to_send.shape[0]/3),
+        ))
         byte_img = calibration.decode_img_to_byte(img_to_send)
         await websocket.send(byte_img)
         await asyncio.sleep(.1)

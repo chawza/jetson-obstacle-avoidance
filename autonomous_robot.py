@@ -50,9 +50,9 @@ class AutonomousRobot(multiprocessing.Process):
       cal_left, cal_right = calibration.calibrate_imgs(gray_left, gray_right, preset=self.cam_preset)
 
       disparity = self.depth_estimator.get_disparity(cal_left, cal_right)
-      self.sa_disparity_img[:] = disparity
+      # self.sa_disparity_img[:] = disparity
 
-      min_distance_list = self.detect_obstacle(disparity)
+      min_distance_list, _ = self.detect_obstacle(disparity)
       # self.sa_distance_list[:] = min_distance_list
 
       if self.sa_robot_event[2] == 1:
@@ -108,8 +108,8 @@ class AutonomousRobot(multiprocessing.Process):
       )
 
       # always draw middle square
-      if index == middle_idx:
-        disparity_cmap = cv2.rectangle(disparity_cmap, top_left, bottom_right, RgbColor.GREEN, 3)
+      # if index == middle_idx:
+      #   disparity_cmap = cv2.rectangle(disparity_cmap, top_left, bottom_right, RgbColor.GREEN, 3)
 
       if min_scan_value < closest_object_distance:
         disparity_cmap = cv2.rectangle(disparity_cmap, top_left, bottom_right, RgbColor.RED, 3)
@@ -128,6 +128,7 @@ class AutonomousRobot(multiprocessing.Process):
     middle_depth = min_distance_list[round(len(min_distance_list) / 2)]
 
     if min_distance_list.min() <= closest_object_distance:
+      print(min_distance_list)
       if debug:
         print(f'ROBOT: STOP\t{min_distance_list.min()}')
       self.robot.stop()
