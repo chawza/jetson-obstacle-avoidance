@@ -171,7 +171,7 @@ class DepthEstimator():
 
 def train_model():
   estimator = DepthEstimator()
-  estimator.train_depth_mapping(depth_map_filepath='./preset/depth_map.npy')
+  estimator.train_depth_mapping(depth_map_filepath='./preset/depth_map2.npy')
   print('model trained')
   presetloader.save_poly_linear_model(estimator.depth_prediction_model)
   print('model saved')

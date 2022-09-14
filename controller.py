@@ -37,13 +37,16 @@ async def listen_server():
       conn = await connect('ws://{}:{}/cam'.format(host, broadcast_port), max_queue=None)
       print('CAM: Server Connected')
       async for data in conn:
-        decide_and_update_img(data)
         if stop_client.is_set():
           await conn.close()
+        decide_and_update_img(data)
     except ConnectionClosedError:
       print('CAM: Reconnecting')
     except ConnectionClosedOK:
       print('CAM: Disonnected')
+      break
+    except ConnectionRefusedError:
+      print('Server Lost: Quitting')
       break
 
   print('Listen: Stop')
@@ -78,8 +81,15 @@ async def app():
             await ws_client.send('SAVE_FRAME')
           elif key == 'z' or key == ' ':
             await ws_client.send('QUIT')
-            break          
-          await asyncio.sleep(.01)
+            break
+          elif key == 'c':
+            await ws_client.send('INCREMENT_READ_MODE')
+          elif key == 'm':
+            await ws_client.send('MOVE_SIGNAL')
+          elif key == 'h':
+            await ws_client.send('SAVE_DEPTH_MAP')
+          elif key == 'j':
+            await ws_client.send('CAPTURE_DISPARITY_MAP')
         
         await ws_client.close()
         stop_client.set()
@@ -98,10 +108,10 @@ def display_image():
   while True:
     if img is not None:
       display_img = img
-      display_img = cv2.resize(img, dsize=(
-        round(img.shape[1]*2),
-        round(img.shape[0]*2),
-      ))
+      # display_img = cv2.resize(img, dsize=(
+      #   round(img.shape[1]*3),
+      #   round(img.shape[0]*3),
+      # ))
       cv2.imshow('img', display_img)
       cv2.waitKey(10)
     
@@ -128,9 +138,9 @@ if __name__ == '__main__':
   display_img_thread = Thread(target=display_image)
   display_img_thread.start()
 
-  control_thread.join()
   display_img_thread.join()
   listen_server_thread.join()
+  control_thread.join()
   cv2.destroyAllWindows()
   exit()
   
