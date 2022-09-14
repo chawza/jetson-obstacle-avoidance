@@ -79,8 +79,6 @@ async def app():
           elif key == 'z' or key == ' ':
             await ws_client.send('QUIT')
             break          
-              break
-            break          
           await asyncio.sleep(.01)
         
         await ws_client.close()
@@ -99,6 +97,7 @@ def display_image():
   global stop_client
   while True:
     if img is not None:
+      display_img = img
       display_img = cv2.resize(img, dsize=(
         round(img.shape[1]*2),
         round(img.shape[0]*2),

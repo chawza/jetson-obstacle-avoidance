@@ -21,7 +21,7 @@ def depth_estimation():
   cv2.namedWindow(window_name)
   estimator = DepthEstimator()
   estimator.load_preset()
-  estimator.train_depth_mapping()
+  estimator.depth_prediction_model = presetloader.load_poly_linear_model('./preset/depth_estimation_model.pickle')
     
   while True:
     left, right = camera.read_once()
@@ -44,7 +44,7 @@ def depth_estimation():
     # print('std:\t', np.std(depth_map))
     # print('depth (mm): ', np.min(crop_depth))
 
-    img_with_sqare = cv2.rectangle(disp_jet_map, (middle_x - crop_radius, middle_y - crop_radius), (middle_x + crop_radius, middle_y + crop_radius), (255, 255, 255), cv2.FILLED)
+    img_with_sqare = cv2.rectangle(disp_jet_map, (middle_x - crop_radius, middle_y - crop_radius), (middle_x + crop_radius, middle_y + crop_radius), (255, 255, 255), 1)
     cv2.imshow('disparity', img_with_sqare)
 
     key = cv2.waitKey(10)

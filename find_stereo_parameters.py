@@ -83,13 +83,22 @@ for imgL, imgR in cam.read():
 	
 	cv2.putText(disparity, f'numDisp: {numDisparities}', org=(50, 50), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale= 1, color=(255,0,0), thickness= 1, lineType= cv2.LINE_AA)
 	cv2.putText(disparity, f'minDisp: {minDisparity}', (50, 75), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale= 1, color=(255,0,0), thickness= 1, lineType= cv2.LINE_AA)
-	cv2.putText(disparity, f'blockSize: {blockSize}', (50, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale= 1, color=(255,0,0), thickness= 1, lineType= cv2.LINE_AA)
+	cv2.putText(disparity, f'blockSize: {blockSizeValue}', (50, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale= 1, color=(255,0,0), thickness= 1, lineType= cv2.LINE_AA)
+	cv2.putText(disparity, f'preFilterType: {preFilterType}', org=(50, 120), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale= 1, color=(255,0,0), thickness= 1, lineType= cv2.LINE_AA)
+	cv2.putText(disparity, f'preFilterSizeValue: {preFilterSizeValue}', (50, 150), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale= 1, color=(255,0,0), thickness= 1, lineType= cv2.LINE_AA)
+	cv2.putText(disparity, f'preFilterCap: {preFilterCap}', (50, 175), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale= 1, color=(255,0,0), thickness= 1, lineType= cv2.LINE_AA)
+	cv2.putText(disparity, f'textureThreshold: {textureThreshold}', org=(50, 200), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale= 1, color=(255,0,0), thickness= 1, lineType= cv2.LINE_AA)
+	cv2.putText(disparity, f'uniquenessRatio: {uniquenessRatio}', (50, 225), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale= 1, color=(255,0,0), thickness= 1, lineType= cv2.LINE_AA)
+	cv2.putText(disparity, f'speckleRange: {speckleRange}', (50, 250), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale= 1, color=(255,0,0), thickness= 1, lineType= cv2.LINE_AA)
+	cv2.putText(disparity, f'speckleWindowSize: {speckleWindowSize}', (50, 275), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale= 1, color=(255,0,0), thickness= 1, lineType= cv2.LINE_AA)
+	cv2.putText(disparity, f'disp12MaxDiff: {disp12MaxDiff}', (50, 300), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale= 1, color=(255,0,0), thickness= 1, lineType= cv2.LINE_AA)
+	
 	
 	cmap_disparity = estimator.disparity_to_colormap(disparity)
 
 	cv2.imshow('Disparity', cmap_disparity)
-	cv2.imshow('Left Camera', cal_left)
-	cv2.imshow('Right Camera', cal_right)
+	# cv2.imshow('Left Camera', cal_left)
+	# cv2.imshow('Right Camera', cal_right)
 
 	# Close window using esc key
 	key = cv2.waitKey(1)
