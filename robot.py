@@ -155,6 +155,8 @@ class Robot:
         self.turn_dir = 0
 
     else:
+      if set_turn_dir > 100:
+        set_turn_dir = 100
       self.turn_dir = set_turn_dir
 
     turn_difference = round(self.speed * (self.turn_dir / self.max_turn))
@@ -182,8 +184,10 @@ class Robot:
         self.turn_dir = 0
 
     else:
+      if set_turn_dir > 100:
+        set_turn_dir = 100
       self.turn_dir = set_turn_dir
-
+    
     turn_difference = round(self.speed *  (abs(self.turn_dir) / self.max_turn))
     
     left_speed = self.speed + turn_difference

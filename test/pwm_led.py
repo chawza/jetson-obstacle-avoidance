@@ -10,8 +10,8 @@ pin_pwm2 = 33
 GPIO.setup(pin_pwm0, GPIO.OUT, initial=GPIO.LOW)
 GPIO.setup(pin_pwm2, GPIO.OUT, initial=GPIO.LOW)
 
-pin_1 = GPIO.PWM(pin_pwm0, 1000)
-pin_2 = GPIO.PWM(pin_pwm2, 1000)
+pin_1 = GPIO.PWM(pin_pwm0, 500)
+pin_2 = GPIO.PWM(pin_pwm2, 500)
 
 percentage = 0
 
