@@ -73,13 +73,17 @@ class AutonomousRobot(multiprocessing.Process):
     middle_y += y_offset
 
     min_scan_value = []
+    max_disparity_value = []
     for x_top_left in range(0, img_width, crop_radius * 2):
       cropped_disparity = disparity[middle_y - crop_radius: middle_y + crop_radius, x_top_left: x_top_left + crop_radius * 2]
       depth_map = self.depth_estimator.predict_depth(cropped_disparity)
       min_distance = np.min(depth_map)
       min_scan_value.append(min_distance)
 
-    return min_scan_value
+      max_disparity_in_crop = np.max(cropped_disparity)
+      max_disparity_value.append(max_disparity_in_crop)
+
+    return min_scan_value, max_disparity_value
 
   def draw_obstacle_box(disparity_cmap, min_distance_list):
     img_height = disparity_cmap.shape[0]
@@ -103,14 +107,15 @@ class AutonomousRobot(multiprocessing.Process):
         (middle_y + crop_radius)
       )
 
+      # always draw middle square
+      if index == middle_idx:
+        disparity_cmap = cv2.rectangle(disparity_cmap, top_left, bottom_right, RgbColor.GREEN, 3)
+
       if min_scan_value < closest_object_distance:
         disparity_cmap = cv2.rectangle(disparity_cmap, top_left, bottom_right, RgbColor.RED, 3)
       elif min_scan_value < object_detect_distance:
         disparity_cmap = cv2.rectangle(disparity_cmap, top_left, bottom_right, RgbColor.WHITE, 3)
 
-      # always draw middle square
-      if index == middle_idx:
-        disparity_cmap = cv2.rectangle(disparity_cmap, top_left, bottom_right, RgbColor.GREEN, 3)
 
     return disparity_cmap
 

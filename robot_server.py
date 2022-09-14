@@ -51,6 +51,31 @@ def read_cam_task():
   camera.clean_up()
   print('read cam task: ends')
 
+depth_map = [
+
+]
+
+def save_depth_map(filename='disparity_list.npy'):
+  print('saving disparity list')
+  presetloader.save_depth_map(depth_map, filename)
+  print('disparity list saved as ', filename)
+
+def capture_depth_map():
+  global depth_estimator
+  left_img = sa.attach('left')
+  right_img = sa.attach('right')
+
+  gray_left, gray_right = cv2.cvtColor(left_img, cv2.COLOR_BGR2GRAY), cv2.cvtColor(right_img, cv2.COLOR_BGR2GRAY)
+  cal_left, cal_right = calibration.calibrate_imgs(gray_left, gray_right, preset=cam_preset)
+
+  disparity = depth_estimator.get_disparity(cal_left, cal_right)
+  middle_idx = len(disparity) // 2
+  
+  save_disparity = np.max(disparity[middle_idx])
+  x = len(depth_map) + 1
+  print(f'[{x}] disparity\t: {save_disparity}')
+  depth_map.append(np.float32(save_disparity))
+
 async def listen_controller(websocket: WebSocketServerProtocol):
   global app_stop
   global shared_left
@@ -99,6 +124,12 @@ async def listen_controller(websocket: WebSocketServerProtocol):
           else:
             robot_event[2] = 0
 
+        elif action == 'CAPTURE_DISPARITY_MAP':
+          capture_depth_map()
+
+        elif action == 'SAVE_DEPTH_MAP':
+          save_depth_map()
+
         else:
           error_message = f'Unrecognized Action "{action}"'
           print(error_message)
@@ -145,21 +176,21 @@ async def broadcast_handler(websocket: WebSocketServerProtocol, _):
           cal_left, cal_right = calibration.calibrate_imgs(gray_left, gray_right, preset=cam_preset)
 
           disparity = depth_estimator.get_disparity(cal_left, cal_right)
-          distance_list = robot_process.detect_obstacle(disparity=disparity)
+          distance_list, max_disparity_list = robot_process.detect_obstacle(disparity=disparity)
 
           # print middle object distance
-          # middle_idx = len(distance_list) // 2
-          # print(f'idx\t: {middle_idx}\tdistance\t: {distance_list[middle_idx]}')
+          middle_idx = len(distance_list) // 2
+          print(f'idx\t: {middle_idx}\tdistance\t: {distance_list[middle_idx]}\tdisparity\t: {max_disparity_list[middle_idx]}')
 
           # img_to_send = depth_estimator.disparity_to_colormap(disparity)
           img_to_send = left_img.copy()
           img_to_send = AutonomousRobot.draw_obstacle_box(img_to_send, distance_list)
 
         ### SEND IMAGE
-        img_to_send = cv2.resize(img_to_send, dsize=(
-          round(img_to_send.shape[1]/3),
-          round(img_to_send.shape[0]/3),
-        ))
+        # img_to_send = cv2.resize(img_to_send, dsize=(
+        #   round(img_to_send.shape[1]/3),
+        #   round(img_to_send.shape[0]/3),
+        # ))
         byte_img = calibration.decode_img_to_byte(img_to_send)
         await websocket.send(byte_img)
         await asyncio.sleep(.1)
